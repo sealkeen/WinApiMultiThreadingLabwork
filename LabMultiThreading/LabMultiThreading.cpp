@@ -301,7 +301,6 @@ namespace NewSolution {
 	{
 		SolutionIntContainer newTryList = SolutionIntContainer(list);
 
-
 		while (depthOverall == currentDepth) {
 			if (leftLeftI < 0) {
 				leftLeftI = startingLeftLeftIndex;
@@ -317,7 +316,10 @@ namespace NewSolution {
 				ShowCombination(newTryList);
 
 				//CheckForNewCombination(newTryList, rightIndex, leftLeftI);
-				TryGhostGlideALine(newTryList, rightIndex, leftLeftI - 1, ++depthOverall, ++currentDepth);
+
+				TryGhostGlideALine(newTryList, rightIndex, leftLeftI, ++depthOverall, ++currentDepth);
+				//--depthOverall
+				TryGhostGlideALine(newTryList, rightIndex, leftLeftI - 1, depthOverall, currentDepth);
 				//TryGhostGlideContainer(newTryList, rightIndex - 1, leftLeftI);
 			} else {
 				return;
@@ -804,52 +806,9 @@ void CombinationFound()
 	g_countOfCombinations++;
 }
 
-void TestOrder()
-{
-	NewSolution::SolutionIntContainer list;
-	list.push_back(1); list.push_back(1); list.push_back(2);
-	if (NewSolution::CheckOrder(list, list.size()-1))
-		std::cout << "true";
-	else 
-		std::cout << "false";
-	std::cout << std::endl;
-}
 
-void CountCombinations() {
 
-	int** storage = new int*[g_targetNumber];
 
-	for (int i = 0; i < g_targetNumber; i++)
-	{
-		storage[i] = new int[g_targetNumber];
-	}
-
-}
-
-void Test()
-{
-	//TestOrder();
-	//system("pause");
-	//return;
-	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(4);
-	int rightIndex = lst.size() - 1;
-	NewSolution::ShowList(lst);
-	NewSolution::RebuildCombination(lst, rightIndex);
-	NewSolution::ShowList(lst);
-	NewSolution::RebuildCombination(lst, rightIndex);
-	NewSolution::ShowList(lst);
-	NewSolution::RebuildCombination(lst, rightIndex);
-	NewSolution::ShowList(lst);
-}
-
-void TestFindAllFittings()
-{
-	g_targetNumber = 8;
-	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1);
-		NewSolution::ShowList(lst);
-	NewSolution::FindAllSumsFixedLength(lst//, lst.size() - 1,
-		/*g_targetNumber, true*/);
-}
 
 void RunNewSolution(bool showResults = false) {
 	//g_targetNumber = targetNumber;
@@ -899,7 +858,7 @@ void RunNewSolutionSingleThreaded(bool showResults = false)
 
 int main()
 {
-	g_targetNumber = 9;
+	g_targetNumber = 10;
 	//std::cout << "C = " << Soch() << std::endl;
 
 	//Test();
