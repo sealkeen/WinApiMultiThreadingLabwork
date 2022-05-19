@@ -15,6 +15,7 @@ int g_targetNumber = 10;
 CRITICAL_SECTION cs;
 #endif //external
 
+
 namespace NewNewSolution {
 	void FindAll() {
 		std::list<int> list;
@@ -45,7 +46,7 @@ namespace CombinationsFinder_MT2_Try {
 
 	void InitializeIndexes() {
 		countForEachIndex = std::vector<int>();
-		for ( int i = 0; i <= g_targetNumber; i++ )
+		for (int i = 0; i <= g_targetNumber; i++)
 		{
 			countForEachIndex.push_back(0);
 		}
@@ -558,12 +559,14 @@ namespace SemaphoreMSDN {
 	}
 }
 
+
 void Run_MT2(bool showResults = false) {
 	g_countOfCombinations = 0;
 	//SimpleTimer::SimpleTimer simpleTimer;
 	//CombinationsFinder_MT2_Try::findCombinations(g_targetNumber, showResults);
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 }
+
 
 int Fact(int number)
 {
