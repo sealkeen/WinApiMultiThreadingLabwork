@@ -11,10 +11,11 @@
 typedef std::vector<int> SolutionIntContainer;
 typedef int ReverseIterator;
 
-#define SHOW_RESULTS
-
+//#define SHOW_RESULTS
 
 CRITICAL_SECTION cs;
+HANDLE sem;
+HANDLE* threads;
 
 //using namespace std;
 std::ifstream g_inputStream;
@@ -28,8 +29,6 @@ std::vector<int> g_possibleCurrentNumbers;
 int g_countOfCombinations = 0;
 int g_targetNumber = 0;
 std::string g_millisecondsSpentOutputStr;
-
-
 
 namespace SimpleTimer {
 	class SimpleTimer
@@ -116,35 +115,35 @@ namespace NewSolution {
 		//int * digit;
 		//SolutionCombinationHandler* ancestor;
 		//std::list<SolutionIntContainer> descendents;
-		std::list<SolutionIntContainer> ghostDescendants;
+		std::list<SolutionIntContainer> descendants;
 	public:
 		// constructors 
 		CombinationStorage() {
-			ghostDescendants = std::list<SolutionIntContainer>();
+			descendants = std::list<SolutionIntContainer>();
 		}
 
 		// methods
-		void KillGhosts() {
-			ghostDescendants.clear();
+		void DeleteDescendants() {
+			descendants.clear();
 		}
 
-		bool FindGhost(SolutionIntContainer* sIC) {
-			for (SolutionIntContainer ghost : ghostDescendants) {
+		bool FindDescendant(SolutionIntContainer* sIC) {
+			for (SolutionIntContainer ghost : descendants) {
 				if (Equal(&ghost, sIC))
 					return true;
 			}
 			return false;
 		}
-		void AddGhost(SolutionIntContainer* combinationNode) {
+		void AddDescendant(SolutionIntContainer* combinationNode) {
 			if (combinationNode != nullptr)
-				ghostDescendants.push_back(SolutionIntContainer(*combinationNode));
+				descendants.push_back(SolutionIntContainer(*combinationNode));
 		}
 
-		SolutionIntContainer* GetNextGhost() {
-			return &ghostDescendants.front();
+		SolutionIntContainer* GetNextDescendant() {
+			return &descendants.front();
 		}
-		void DispellFrontGhost() {
-			ghostDescendants.pop_front();
+		void DeleteFrontDescendant() {
+			descendants.pop_front();
 		}
 
 	}; // class CombinationComparator
@@ -152,26 +151,28 @@ namespace NewSolution {
 	class ListHandler {
 	private:
 		CombinationStorage combinationStorage;
+		SolutionIntContainer sourceList;
 	public:
 		// public fields:
 		static std::list<SolutionIntContainer> startingCombinations;
 
 		//constructor:
-		ListHandler()
+		ListHandler(SolutionIntContainer& s)
 		{
+			sourceList = SolutionIntContainer(s);
 			//InitializeCombinations();
 		}
 
 		//methods:
-		void KillInnerGhosts()
+		void DeleteInnerDescendants()
 		{
-			combinationStorage.KillGhosts();
+			combinationStorage.DeleteDescendants();
 		}
 
-		void NewGhostFound(SolutionIntContainer* combination)
+		void NewDescendantFound(SolutionIntContainer* combination)
 		{
 			g_countOfCombinations++;
-			combinationStorage.AddGhost(combination);
+			combinationStorage.AddDescendant(combination);
 		}
 
 		void CombinationFound(SolutionIntContainer* combination) {
@@ -321,8 +322,8 @@ namespace NewSolution {
 			if (CheckOrder(newTryList, rightI) > 0)
 				return false;
 
-			if (!combinationStorage.FindGhost(&newTryList)) {
-				NewGhostFound(&newTryList);
+			if (!combinationStorage.FindDescendant(&newTryList)) {
+				NewDescendantFound(&newTryList);
 
 				list[rightI] = list[rightI] - 1;
 				list[leftI] = list[leftI] + 1;
@@ -355,6 +356,15 @@ namespace NewSolution {
 
 		int startingLeftLeftIndex;
 		bool glode = false;
+		int lastRight = 1;
+		int lastLeft = 1;
+
+		bool Exists(SolutionIntContainer& list, int minR, int maxL) {
+			if (minR == lastRight && maxL == lastLeft)
+				return true;
+			return false;
+		}
+
 		void TryGhostGlideALine(SolutionIntContainer& list, int rightIndex, int leftLeftI,
 			int& depthOverall, int currentDepth)
 		{
@@ -371,10 +381,22 @@ namespace NewSolution {
 				newTryList = TryDecAndInc(newTryList, rightIndex, leftLeftI);
 
 				if (CheckOrder(newTryList, rightIndex) <= 0) {
-
-					if (!combinationStorage.FindGhost(&newTryList)) {
+					if (
+						!combinationStorage.FindDescendant(&newTryList)
+						//&&
+						//true
+						//!Exists(newTryList, newTryList[rightIndex], newTryList[leftLeftI])
+						) {
 						//NewGhostFound(&list);
-						NewGhostFound(&newTryList);
+						//TODO: erase 2 / restore 1 || erase 1 / restore 2
+						NewDescendantFound(&newTryList);
+						//g_countOfCombinations++;
+
+						//if(newTryList[rightIndex] < lastRight)
+							lastRight = newTryList[rightIndex];
+						//if (newTryList[leftLeftI] > lastLeft)
+							lastLeft = newTryList[leftLeftI];
+						
 						ShowCombination(newTryList);
 					}
 
@@ -393,8 +415,7 @@ namespace NewSolution {
 					);
 					//else
 					//	return;
-				}
-				else {
+				} else {
 					//glode = true; //TODO: check if needed
 					return;
 				}
@@ -442,6 +463,11 @@ namespace NewSolution {
 				//	SolutionIntContainer sIC;
 				startingLeftLeftIndex = leftLeftI;
 				int depth = 0;
+
+				lastRight = list[rightI];
+				lastLeft = 1;
+				//TODO: check if works
+				combinationStorage.DeleteDescendants();
 				TryGhostGlideALine(list, rightI, leftLeftI, depth, depth//, 0
 				);
 				//}
@@ -500,28 +526,169 @@ namespace NewSolution {
 			}
 		}
 
-		void FindAllSumsFixedLength(SolutionIntContainer list)
-		{
-			int rightIndex = /*firstRun ?*/ list.size() - 1 /*: iterator - 1*/;
-
+		void FindAllSumsFixedLength()
+		{ 
+			//std::cout << "Entered Instance Method FindAllSumsFixedLength" << std::endl;
+			
+			ShowList(sourceList);
+			int rightIndex = /*firstRun ?*/ sourceList.size() - 1 /*: iterator - 1*/;
 			int left = (rightIndex - 1);
-
 			int difference = g_targetNumber;
 
-			while ((difference = NewSolution::Difference(list)) > 0) {
-				list[rightIndex]++;
+			while ((difference = NewSolution::Difference(sourceList)) > 0) {
+				sourceList[rightIndex]++;
 			}
 
-			NewGhostFound(&list);
-			ShowCombination(list);
+			NewDescendantFound(&sourceList);
+			ShowCombination(sourceList);
 
-			//bool razmazano = false;
 			while (
-				RebuildCombination(list, rightIndex)
+				RebuildCombination(sourceList, rightIndex)
 				)
 			{
 				--rightIndex;
 			}
+			//std::cout << "Quiting Instance Method FindAllSumsFixedLength" << std::endl;
+		}
+
+		static SolutionIntContainer Next()
+		{
+			EnterCriticalSection(&::cs);
+			if (startingCombinations.size() == 0)
+				return SolutionIntContainer();
+			SolutionIntContainer sourceList = SolutionIntContainer(startingCombinations.front());
+			startingCombinations.pop_front();
+			LeaveCriticalSection(&::cs);
+			return sourceList;
+		}
+
+		static void WriteLineThreadBlocking(const char* line, int length = 0)
+		{
+			EnterCriticalSection(&::cs);
+			std::cout << line << std::endl;
+			LeaveCriticalSection(&::cs);
+		}
+
+		static DWORD WINAPI FindAllSumsFixedLengthMT2(LPVOID pListHandler)
+		{
+			WriteLineThreadBlocking("Entered thread");
+			ListHandler* pLH = (ListHandler*)pListHandler;
+
+			DWORD dwWaitResult;
+			BOOL bContinue = TRUE;
+
+			// Try to enter the semaphore gate.
+
+			dwWaitResult = WaitForSingleObject(
+				sem,   // handle to semaphore
+				INFINITE);           // zero-second time-out interval
+
+			int rightIndex = 0;
+			int left = 0;
+			int difference = g_targetNumber;
+
+			std::string strSucceded = std::string();
+			strSucceded.append("Thread ");
+			strSucceded.append(std::to_string(GetCurrentThreadId()));
+			strSucceded.append(": wait succeeded\n");
+
+			switch (dwWaitResult)
+			{
+				// The semaphore object was signaled.
+			case WAIT_OBJECT_0:
+				// TODO: Perform task
+				WriteLineThreadBlocking(strSucceded.c_str());
+				bContinue = FALSE;
+
+				// Simulate thread spending time on task
+				WriteLineThreadBlocking("Entered Task");
+				//std::cout << "Entered Task" << std::endl;
+
+				ShowList(pLH->sourceList);
+				rightIndex = /*firstRun ?*/ pLH->sourceList.size() - 1 /*: iterator - 1*/;
+				left = (rightIndex - 1);
+				
+				//TODO: test Added 9/24/2019
+				if (rightIndex < 0)
+					return FALSE;
+				while ((difference = NewSolution::Difference(pLH->sourceList)) > 0) {
+					pLH->sourceList[rightIndex]++;
+				}
+
+				pLH->NewDescendantFound(&pLH->sourceList);
+				ShowCombination(pLH->sourceList);
+
+				while (
+					pLH->RebuildCombination(pLH->sourceList, rightIndex)
+					)
+				{
+					--rightIndex;
+				}
+				pLH->combinationStorage.DeleteDescendants();
+
+				// Release the semaphore when task is finished
+
+				if (!ReleaseSemaphore(
+					sem,  // handle to semaphore
+					1,            // increase count by one
+					NULL))       // not interested in previous count
+				{
+					printf("ReleaseSemaphore error: %d\n", GetLastError());
+				}
+				break;
+
+				// The semaphore was nonsignaled, so a time-out occurred.
+			case WAIT_TIMEOUT:
+				printf("Thread %d: wait timed out\n", GetCurrentThreadId());
+				break;
+			}
+			delete pLH;
+			return TRUE;
+		}
+
+		//TODO: Debug and figure out what's wrong here
+		static DWORD WINAPI FindAllSumsFixedLengthMT(LPVOID lpParam)
+		{
+			//std::cout << "Entered FindAllSumsFixedLengthMT" << std::endl;
+			// lpParam not used in this example
+			UNREFERENCED_PARAMETER(lpParam);
+
+			DWORD dwWaitResult;
+			BOOL bContinue = TRUE;
+
+			//std::cout << "Count of combinations : " << startingCombinations.size() << std::endl;
+			//while there are combinations unanalyzed
+			while (startingCombinations.size() > 0)
+			{
+				//std::cout << "Waiting for single object" << std::endl;
+				// Try to enter the semaphore gate.
+				dwWaitResult = WaitForSingleObject(
+					::sem,				// handle to semaphore
+					INFINITE);			// infinite time-out interval
+
+				SolutionIntContainer next = Next();
+				if (next.size() == 0)
+					return 1;
+				ListHandler lH(next);
+
+				switch (dwWaitResult)
+				{
+					// The semaphore object was signaled.
+				case WAIT_OBJECT_0:
+					
+					// Perform task
+					lH.FindAllSumsFixedLength();
+					// TODO: check where we kill ghosts
+					lH.DeleteInnerDescendants();
+
+					// The semaphore was nonsignaled, so a time-out occurred.
+				case WAIT_TIMEOUT:
+					printf("Thread %d: wait timed out\n", GetCurrentThreadId());
+					break;
+				}
+			}
+			//std::cout << "Quiting FindAllSumsFixedLengthMT..." << std::endl;
+			return TRUE;
 		}
 	}; // CombinationListHandler
 } // New Solution //
@@ -658,22 +825,172 @@ bool InitializeInputData() {
 	return true;
 }
 
-void SimulateInitialization() {
-	g_threadCount = 2;
-	g_targetNumber = 10;
-}
-
-void RunMultiThreaded( bool showResults = false ) {
-	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
-	//simpleTimer = SimpleTimer::SimpleTimer();
-	CombinationsFinder::findCombinations( g_targetNumber, showResults );
-	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
-	g_millisecondsSpentOutputStr = simpleTimer.StopMilliseconds();
-	//std::string timeSpent = simpleTimer.Stop();
-	//g_outputStream.write(timeSpent.c_str(), timeSpent.length());
+void SimulateInitialization(int targetNumber = 10, int threadCount = 2) {
+	g_threadCount = threadCount;
+	g_targetNumber = targetNumber;
 }
 
 std::list<SolutionIntContainer> NewSolution::ListHandler::startingCombinations;
+
+void RunNewSolutionMultiThreaded2() {
+	g_countOfCombinations = 0;
+	NewSolution::ListHandler::InitializeCombinations();
+
+	sem = CreateSemaphore(
+		NULL,           // default security attributes
+		1,				// initial count
+		g_threadCount,  // maximum count
+		NULL);          // unnamed semaphore
+
+
+	if (sem == NULL)
+	{
+		printf("CreateSemaphore error: %d\n", GetLastError());
+	}
+
+	// Initialize the critical section one time only.
+	if (!InitializeCriticalSectionAndSpinCount(&cs,
+		0x00000400))
+		return;
+
+	// Create worker threads
+	DWORD ThreadID;
+	threads = new HANDLE[NewSolution::ListHandler::startingCombinations.size()];
+
+	for (int i = 0; i < NewSolution::ListHandler::startingCombinations.size(); i++)
+	{
+		threads[i] = 0;
+	}
+
+	int lastThreadID = -1;
+	for (auto i = NewSolution::ListHandler::startingCombinations.begin(); i != NewSolution::ListHandler::startingCombinations.end(); i++)
+	{
+		if (NewSolution::Difference(*i) == 0) {
+			g_countOfCombinations++;
+			NewSolution::ListHandler::ShowCombination(*i);
+			continue;
+		}
+		++lastThreadID;
+		NewSolution::ListHandler* listHandler = new NewSolution::ListHandler(*i);
+
+		// TODO: check where we kill ghosts
+		listHandler->DeleteInnerDescendants();
+		//listHandler.FindAllSumsFixedLength();
+
+		threads[lastThreadID] = CreateThread(
+			NULL,       // default security attributes
+			0,          // default stack size
+			(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT2,
+			(LPVOID)listHandler,       // thread function argument
+			0,          // default creation flags
+			&ThreadID); // receive thread identifier
+
+		if (threads[lastThreadID] == NULL)
+		{
+			printf("CreateThread error: %d\n", GetLastError());
+			return;
+		}
+
+	}
+
+	//for (int i = 0; i < g_threadCount; i++)
+	//{
+	//	threads[i] = CreateThread(
+	//		NULL,       // default security attributes
+	//		0,          // default stack size
+	//		(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT,
+	//		NULL,       // no thread function arguments
+	//		0,          // default creation flags
+	//		&ThreadID); // receive thread identifier
+
+	//	if (threads[i] == NULL)
+	//	{
+	//		printf("CreateThread error: %d\n", GetLastError());
+	//		return;
+	//	}
+	//}
+
+
+
+	// Wait for all threads to terminate
+	//WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
+
+	WaitForMultipleObjects(lastThreadID + 1, threads, TRUE, INFINITE);
+
+	// Close thread and semaphore handles
+	for (int i = 0; i <= lastThreadID; i++)
+		CloseHandle(threads[i]);
+
+	delete[] threads;
+	CloseHandle(sem);
+
+	// Release resources used by the critical section object.
+	DeleteCriticalSection(&cs);
+
+	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
+	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
+	std::cout << "*** New Solution Execution Completed ***" << std::endl;
+}
+
+void RunNewSolutionMultiThreaded( ) {
+
+	g_countOfCombinations = 0;
+	NewSolution::ListHandler::InitializeCombinations();
+	
+	sem = CreateSemaphore(
+		NULL,           // default security attributes
+		1,				// initial count
+		g_threadCount,  // maximum count
+		NULL);          // unnamed semaphore
+
+
+	if (sem == NULL)
+	{
+		printf("CreateSemaphore error: %d\n", GetLastError());
+	}
+
+	// Initialize the critical section one time only.
+	if (!InitializeCriticalSectionAndSpinCount(&cs,
+		0x00000400))
+		return;
+
+	// Create worker threads
+	DWORD ThreadID;
+	threads = new HANDLE[g_threadCount];
+	for (int i = 0; i < g_threadCount; i++)
+	{
+		threads[i] = CreateThread(
+			NULL,       // default security attributes
+			0,          // default stack size
+			(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT,
+			NULL,       // no thread function arguments
+			0,          // default creation flags
+			&ThreadID); // receive thread identifier
+
+		if (threads[i] == NULL)
+		{
+			printf("CreateThread error: %d\n", GetLastError());
+			return;
+		}
+	}
+
+	// Wait for all threads to terminate
+	WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
+
+	// Close thread and semaphore handles
+	for (int i = 0; i < g_threadCount; i++)
+		CloseHandle(threads[i]);
+
+	delete[] threads;
+	CloseHandle(sem);
+
+	// Release resources used by the critical section object.
+	DeleteCriticalSection(&cs);
+
+	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
+	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
+	std::cout << "*** New Solution Execution Completed ***" << std::endl;
+}
 
 void RunNewSolution(bool showResults = false) {
 	g_countOfCombinations = 0;
@@ -686,14 +1003,11 @@ void RunNewSolution(bool showResults = false) {
 			NewSolution::ListHandler::ShowCombination((*i));
 			continue;
 		}
-		NewSolution::ListHandler listHandler;
+		NewSolution::ListHandler listHandler(*i);
 
 		// TODO: check where we kill ghosts
-		listHandler.KillInnerGhosts();
-
-		listHandler.FindAllSumsFixedLength(
-			*i
-		);
+		listHandler.DeleteInnerDescendants();
+		listHandler.FindAllSumsFixedLength();
 	}
 
 	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
@@ -721,20 +1035,20 @@ void TestCombinationHandler()
 	NewSolution::CombinationStorage sCH;
 	SolutionIntContainer sIC;
 	sIC.push_back(1);
-	sCH.AddGhost(&sIC);
-	bool truth = sCH.FindGhost(&sIC);
+	sCH.AddDescendant(&sIC);
+	bool truth = sCH.FindDescendant(&sIC);
 }
 
 int main()
 {
- 	g_targetNumber = 11;
+	SimulateInitialization(10, 1);
 	//std::cout << "C = " << Soch() << std::endl;
 
 	//Test();
 	//return 1;
 	//TestFindAllFittings();
-	RunNewSolutionSingleThreaded(true);
-	
+	//RunNewSolutionSingleThreaded(true);
+	RunNewSolutionMultiThreaded2();
 	Run(true);
 	//Run_MT2(true);
 	system("pause");
@@ -744,7 +1058,6 @@ int main()
 
 	system("pause");
 	return 0;
-	SimulateInitialization();
 	//NewSolution::InitializeCombinations();
 	system("pause");
 	return 0;
