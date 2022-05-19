@@ -8,7 +8,11 @@
 #include <queue>
 #include <list>
 
-#define SHOW_RESULTS
+typedef std::vector<int> SolutionIntContainer;
+typedef int ReverseIterator;
+
+//#define SHOW_RESULTS
+
 
 CRITICAL_SECTION cs;
 
@@ -25,13 +29,12 @@ int g_countOfCombinations = 0;
 int g_targetNumber = 0;
 std::string g_millisecondsSpentOutputStr;
 
-void CombinationFound();
+
 
 namespace SimpleTimer {
 	class SimpleTimer
 	{
 	public:
-
 		SimpleTimer::SimpleTimer()
 		{
 			start = std::chrono::high_resolution_clock::now();
@@ -80,9 +83,69 @@ namespace SimpleTimer {
 	};
 }
 
+
+// TODO: clean
 namespace NewSolution {
-	typedef std::vector<int> SolutionIntContainer;
-	typedef int ReverseIterator;
+	static class CombinationSolver {
+	private:
+		//int * digit;
+		//SolutionCombinationHandler* ancestor;
+		//std::list<SolutionIntContainer> descendents;
+		static std::list<SolutionIntContainer> ghostDescendants;
+	public:
+		// constructors 
+		CombinationSolver() {
+			ghostDescendants = std::list<SolutionIntContainer>();
+		}
+
+		// methods
+		static void KillGhosts() {
+			ghostDescendants.clear();
+		}
+
+		static bool FindGhost(SolutionIntContainer* sIC) {
+			for (SolutionIntContainer ghost : ghostDescendants) {
+				if (Equal(&ghost, sIC))
+					return true;
+			}
+			return false;
+		}
+
+		static bool Equal(SolutionIntContainer* left, SolutionIntContainer* right) {
+			if (left->size() != right->size())
+				return false;
+
+			for (int i = 0; i < (left->size() - 1); i++) {
+				if ((*left)[i] != (*right)[i])
+					return false;
+			}
+
+			return true;
+		}
+
+		static void AddGhost(SolutionIntContainer* combinationNode) {
+			if (combinationNode != nullptr)
+				ghostDescendants.push_back(SolutionIntContainer(*combinationNode));
+		}
+
+		static SolutionIntContainer* GetNextGhost() {
+			return &ghostDescendants.front();
+		}
+
+		static void DispellFrontGhost() {
+			ghostDescendants.pop_front();
+		}
+	};
+
+	void NewGhostFound(SolutionIntContainer* combination)
+	{
+		g_countOfCombinations++;
+		NewSolution::CombinationSolver::AddGhost(combination);
+	}
+
+	void CombinationFound(SolutionIntContainer* combination) {
+		g_countOfCombinations++;
+	}
 
 	std::list<SolutionIntContainer> combinations;
 
@@ -106,11 +169,12 @@ namespace NewSolution {
 
 	int IncludingIndexDifference(int sum, int reductionOffset)
 	{
-		return (g_targetNumber - reductionOffset) - sum;
+		return ((g_targetNumber - reductionOffset) - sum);
 	}
 
 	//Tested OK 10:47 PM 5/23/2019
-	bool CheckOrder(SolutionIntContainer& list, int maxIndex) {
+	bool CheckOrder(SolutionIntContainer& list, int maxIndex) 
+	{
 		// TODO: optimize 
 		int leftI = 0, rightI = 1;
 		int sum = list[leftI];
@@ -129,12 +193,10 @@ namespace NewSolution {
 		return IncludingIndexDifference(sum, reductionOffset);
 	}
 
-
 	int Difference(int sum)
 	{
 		return g_targetNumber - sum;
 	}
-
 
 	int Difference(SolutionIntContainer& targetList) {
 		int sum = 0;
@@ -158,9 +220,9 @@ namespace NewSolution {
 	//	return IncludingIndexDifference(sum, reductionOffset);
 	//}
 
-	int Difference(std::list<int>& targetList) {
+	int Difference( std::list<int>& targetList ) {
 		int sum = 0;
-		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+		for ( auto it = targetList.rbegin(); it != targetList.rend(); it++ ) {
 			sum += (*it);
 		}
 		return Difference(sum);
@@ -174,14 +236,12 @@ namespace NewSolution {
 			{
 				std::cout << (*i) << " ";
 			}
-		}
-		else {
-
+		} else {
 			for (auto i = list.begin(); i != list.end(); i++) {
 				std::cout << (*i) << " ";
 			}
 		}
-		if			(additionalContents != nullptr) {
+		if (additionalContents != nullptr) {
 			std::cout << " \t " << *additionalContents << " \t ";
 		}
 		std::cout << std::endl;
@@ -195,8 +255,7 @@ namespace NewSolution {
 #endif
 	}
 
-
-	void SetValue(int index, SolutionIntContainer& list, int value) {
+	void SetValue( int index, SolutionIntContainer& list, int value ) {
 
 		if (index < 0 || index >= list.size())
 			return;
@@ -231,16 +290,16 @@ namespace NewSolution {
 		return resultingList;
 	}
 
-	bool CheckForNewCombination(SolutionIntContainer list, int rightIndex, int leftIndex)
-	{
-		if ((list[rightIndex] - 1) >= list[leftIndex])
-			if ((list[leftIndex] + 1) <= list[rightIndex]) {
-				CombinationFound();
-				ShowCombination(list);
-				return true;
-			}
-		return false;
-	}
+	//bool CheckForNewCombination(SolutionIntContainer list, int rightIndex, int leftIndex)
+	//{
+	//	if ((list[rightIndex] - 1) >= list[leftIndex])
+	//		if ((list[leftIndex] + 1) <= list[rightIndex]) {
+	//			GhostFound(&list);
+	//			ShowCombination(list);
+	//			return true;
+	//		}
+	//	return false;
+	//}
 
 	bool RebuildDownstairs(SolutionIntContainer& list, int rightI, int leftI = -1)
 	{
@@ -252,24 +311,23 @@ namespace NewSolution {
 		if (CheckOrder(newTryList, rightI) > 0)
 			return false;
 
-		CombinationFound();
+		if (!CombinationSolver::FindGhost(&newTryList)) {
+			NewGhostFound(&newTryList);
 
-		list[rightI] = list[rightI] - 1;
-		list[leftI] = list[leftI] + 1;
+			list[rightI] = list[rightI] - 1;
+			list[leftI] = list[leftI] + 1;
 
 #ifdef SHOW_RESULTS
+			std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightI) +
+				+" ; " + std::string("leftIndex = ") + std::to_string(leftI) + std::string(";");
 
-		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightI) +
-			+" ; " +
-			std::string("leftIndex = ") + std::to_string(leftI) +
-			std::string(";");
-
-		ShowCombination(list
-			, &indexesStr
-		);
+			ShowCombination(list
+				, &indexesStr
+			);
 #endif //SHOW_RESULTS
-
-		return true;
+			return true;
+		}
+		return false;
 	}
 
 	void TryNormalize()
@@ -278,8 +336,6 @@ namespace NewSolution {
 	}
 	
 	void TryGhostGlideEntireArray(SolutionIntContainer list, int rightIndex, int leftLeftI) {
-
-
 
 	}
 
@@ -297,81 +353,95 @@ namespace NewSolution {
 	}
 
 	int startingLeftLeftIndex;
-	void TryGhostGlideALine(SolutionIntContainer& list, int rightIndex, int leftLeftI, int& depthOverall, int currentDepth) 
+	bool glode = false;
+	void TryGhostGlideALine( SolutionIntContainer& list, int rightIndex, int leftLeftI, 
+		int& depthOverall, int currentDepth ) 
 	{
 		SolutionIntContainer newTryList = SolutionIntContainer(list);
 
-		while (depthOverall == currentDepth) {
-			if (leftLeftI < 0) {
+		while ( depthOverall == currentDepth ) //(true)
+		{
+			if ( leftLeftI < 0 ) {
 				leftLeftI = startingLeftLeftIndex;
 			}
 
 			if (!GlidePossible(newTryList))
 				return;
+			newTryList = TryDecAndInc( newTryList, rightIndex, leftLeftI );
 
-			newTryList = TryDecAndInc(newTryList, rightIndex, leftLeftI);
-			if (CheckOrder(newTryList, rightIndex) <= 0) {
+			if ( CheckOrder( newTryList, rightIndex ) <= 0 ) {
 
-				CombinationFound();
-				ShowCombination(newTryList);
+				if ( !NewSolution::CombinationSolver::FindGhost( &newTryList ) ) {
+					//NewGhostFound(&list);
+					NewGhostFound(&newTryList);
+					ShowCombination(newTryList);
+				}
 
 				//CheckForNewCombination(newTryList, rightIndex, leftLeftI);
 
-				TryGhostGlideALine(newTryList, rightIndex, leftLeftI, ++depthOverall, ++currentDepth);
-				//--depthOverall
-				TryGhostGlideALine(newTryList, rightIndex, leftLeftI - 1, depthOverall, currentDepth);
-				//TryGhostGlideContainer(newTryList, rightIndex - 1, leftLeftI);
+				TryGhostGlideALine( newTryList, rightIndex, leftLeftI, ++depthOverall, ++currentDepth );
+				//--depthOverall;
+
+				// Repeat recursively
+				//if (  (leftLeftI >= 1) 
+				//	 && (maxLeftPosition <= leftLeftI) 
+				//)
+				TryGhostGlideALine( newTryList, rightIndex, (leftLeftI - 1),
+					(depthOverall = currentDepth),
+						/*++*/currentDepth 
+				);
+				//else
+				//	return;
 			} else {
+				//glode = true; //TODO: check if needed
 				return;
 			}
-
 			leftLeftI--;
 		}
-
 	//} else return false;
+		//glode = true; //TODO: check if needed
 	}
 
-
-	void ChangeValue(SolutionIntContainer& container, int index, int value) {
+	void ChangeValue( SolutionIntContainer& container, int index, int value ) {
 		container[index] = value;
 	}
 
-	void PrintRebuilt(SolutionIntContainer sIC)
+	void PrintRebuilt( SolutionIntContainer sIC )
 	{
 
 	}
 
-	bool RebuildOnce(SolutionIntContainer& targetList, ReverseIterator rightIndex, int increaseIncludingBorder)
+	bool RebuildOnce( SolutionIntContainer& list, 
+		ReverseIterator rightIndex, int increaseIncludingBorder )
 	{
 		// strictly more than 0 because we move towards left border
 		// and check for the previous (right - 1) element
 		for (; rightIndex > 0; rightIndex--) {
 			for (int leftIndex = rightIndex - 1; leftIndex >= 0; leftIndex--) {
 				// if two near elements are equal 
-				if (targetList[rightIndex] == targetList[leftIndex])
+				if (list[rightIndex] == list[leftIndex])
 					continue;
 				// if the right element is greater than the left element by 2
-				if (targetList[rightIndex] > (targetList[leftIndex] + 1)) {
+				if (list[rightIndex] > (list[leftIndex] + 1)) {
 					// if increasing the left element doesn't make it more than the right element
-					if ((targetList[(leftIndex)] + 1) <= targetList[rightIndex]) {
+					if ((list[(leftIndex)] + 1) <= list[rightIndex]) {
 						//int prevIndex = (rightIndex - 1);
 						//if ( prevIndex < targetList.size() && prevIndex >= 0 ) {
-						if (targetList[leftIndex] + 1 <= increaseIncludingBorder) {
-							targetList[rightIndex] = targetList[rightIndex] - 1;
-							targetList[leftIndex] = targetList[leftIndex] + 1;
+						if (list[leftIndex] + 1 <= increaseIncludingBorder) {
+							list[rightIndex] = list[rightIndex] - 1;
+							list[leftIndex] = list[leftIndex] + 1;
 							//	}
 						}
-						CombinationFound();
-						targetList[rightIndex] = targetList[rightIndex] - 1;
-						targetList[leftIndex] = targetList[leftIndex] + 1;
+						NewGhostFound(&list);
+						list[rightIndex] = list[rightIndex] - 1;
+						list[leftIndex] = list[leftIndex] + 1;
 #ifdef SHOW_RESULTS
-
 						std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
 							+" ; " +
 							std::string("leftIndex = ") + std::to_string(leftIndex) +
 							std::string(";");
 
-						ShowCombination(targetList
+						ShowCombination(list
 							, &indexesStr
 						);
 #endif //SHOW_RESULTS
@@ -446,7 +516,10 @@ namespace NewSolution {
 
 	bool CanFurtherGlide(SolutionIntContainer& list, int index)
 	{
-		//
+		//TODO: remember to put 
+		//something in your mouth
+		//at breakfast
+
 		throw 0xDEADBEEF;
 	}
 
@@ -457,7 +530,7 @@ namespace NewSolution {
 		// working with previous
 		// Find the left Element
 		// Check if left element is to the left of right
-		int leftI = rightI - 1;
+		int leftI = (rightI - 1);
 
 		// exit if can't shift
 		// (exit if left doesn't exist)
@@ -466,7 +539,6 @@ namespace NewSolution {
 
 		//if (CheckOrder(list, rightI) > 0)
 		//	return false;
-
 
 		// TODO: exit condition
 		if (!RebuildDownstairs(list, rightI))
@@ -479,16 +551,16 @@ namespace NewSolution {
 		// a third element we are currently working on 
 		// it is to the third position to the left 
 		// and more if needed 
-		int leftLeftI = leftI - 1;
-		if (leftLeftI >= 0) {
+		int leftLeftI = ( leftI - 1 );
+		if ( leftLeftI >= 0 ) 
+		{
 			//for (int i = 0; i < list[leftI]; i++)
 			//{
 			//	SolutionIntContainer sIC;
-
 				startingLeftLeftIndex = leftLeftI;
-
 				int depth = 0;
-				TryGhostGlideALine(list, rightI, leftLeftI, depth, depth);
+				TryGhostGlideALine(list, rightI, leftLeftI, depth, depth//, 0
+				);
 			//}
 		}
 		
@@ -498,6 +570,7 @@ namespace NewSolution {
 		//	Inc(list, leftI);
 		//	Dec(list, rightI);
 		//	CombinationFound();
+		//	GhostFound();
 		//	ShowCombination(list);
 		//	return true;
 		//}
@@ -510,16 +583,15 @@ namespace NewSolution {
 	}
 
 	// Rebuild saving existing right element
-	bool RebuildCombination(SolutionIntContainer& list, ReverseIterator rightIndex)
+	bool RebuildCombination( SolutionIntContainer& list, 
+		ReverseIterator rightIndex )
 	{
 		if (rightIndex <= 0)
 			return false;
 		// strictly more than 0 because we move towards left border
 		// and check for the previous (right - 1) element
-
 		//int rightI = list.size() - 1;
 		//int leftI = 0;
-
 		//int indOffset = 1;
 		//int valOffset = 1;
 
@@ -528,37 +600,34 @@ namespace NewSolution {
 		////return false;
 		//	return 
 		//}
+		int orderDisplacement = CheckOrder( list, rightIndex );
 
-		int orderDisplacement = CheckOrder(list, rightIndex);
-
-		if (orderDisplacement < 0)
-			Inc(list, rightIndex);
-		if (orderDisplacement > 0)
+		if ( orderDisplacement < 0 )
+			Inc( list, rightIndex );
+		if ( orderDisplacement > 0 )
 			return false;
 
-		int leftI = rightIndex -1;
-
+		int leftI = (rightIndex - 1);
 		//if (list[leftI] + 1 > list[rightIndex])
 		//	return false;
 			//return RebuildOnce(list, rightIndex, list[rightIndex]);
 
 		// Find the changed
-		while ( FindNext(list, rightIndex) ) {
+		while ( FindNext( list, rightIndex ) ) {
 			// RebuildDownstairs(list, rightIndex);
 			// Inc(list, leftI);
 		}
-
 		//while (leftI < (rightI- indOffset)) {
 		//	if (!RightIsGreater(targetList[leftI], targetList[rightI-1], valOffset/*1*/))
 		//		break;
 		//	else
 		//		rightI--;
 		//}
-
 		return true;
 	}
 
-	bool SearchForNew(SolutionIntContainer& targetList/*, ReverseIterator rightIndex,*/) {
+	bool SearchForNew(SolutionIntContainer& targetList
+		/*, ReverseIterator rightIndex,*/) {
 		// strictly more than 0 because we move towards left border
 		// and check for the previous (right - 1) element
 
@@ -568,7 +637,7 @@ namespace NewSolution {
 		//if (g_countOfCombinations == 44)
 		//	std::string();
 
-		for (int curRight = rightIndex; curRight < 0; curRight--) {
+		for ( int curRight = rightIndex; curRight < 0; curRight-- ) {
 
 		}
 
@@ -576,7 +645,7 @@ namespace NewSolution {
 		targetList[rightIndex] = targetList[rightIndex] - 1;
 		targetList[leftIndex] = targetList[leftIndex] + 1;
 
-		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
+		std::string indexesStr = std::string( "rightIndex = " ) + std::to_string(rightIndex) +
 			+" ; " +
 			std::string("leftIndex = ") + std::to_string(leftIndex) +
 			std::string(";");
@@ -591,17 +660,18 @@ namespace NewSolution {
 
 	void InitializeCombinations()
 	{
-		for (int i = g_targetNumber; i > 1; i--)
+		for ( int i = g_targetNumber ; i > 1 ; i-- )
 		{
 			SolutionIntContainer newList = SolutionIntContainer();
-			for (int k = 0; k < i; k++) {
+			for ( int k = 0; k < i; k++ ) {
 				newList.push_back(1);
 			}
+
 			combinations.push_back(newList);
 		}
 	}
 
-	int CopyIterator(int& sourceIterator) {
+	int CopyIterator( int& sourceIterator ) {
 		int targetIterator = sourceIterator;
 		return targetIterator;
 	}
@@ -609,8 +679,7 @@ namespace NewSolution {
 	//Debug
 	void ShowLists()
 	{
-		for (auto it1 = combinations.begin(); it1 != combinations.end(); it1++)
-		{
+		for (auto it1 = combinations.begin(); it1 != combinations.end(); it1++) {
 			for (auto it2 = it1->begin(); it2 != it1->end(); it2++) {
 				std::cout << (*it2) << " ";
 			}
@@ -618,16 +687,16 @@ namespace NewSolution {
 		}
 	}
 
-	void FindAllSumsFixedLength(SolutionIntContainer targetList/*, ReverseIterator iterator, int reducedNumber, bool firstRun = false*/) 
+	void FindAllSumsFixedLength(SolutionIntContainer list
+	/*, ReverseIterator iterator, int reducedNumber, bool firstRun = false*/) 
 	{
-		int rightIndex = /*firstRun ?*/ targetList.size() - 1 /*: iterator - 1*/;
+		int rightIndex = /*firstRun ?*/ list.size() - 1 /*: iterator - 1*/;
 
 		int left = (rightIndex - 1);
 
 		int difference = g_targetNumber;
-		while ((difference = Difference(targetList)) > 0)
-		{
-			targetList[rightIndex]++;
+		while ((difference = Difference(list)) > 0) {
+			list[rightIndex]++;
 			// TODO remove / rewrite
 			//for (int left = rightIndex; left >= 0; left--)
 			//{
@@ -635,14 +704,15 @@ namespace NewSolution {
 			//}
 		}
 
-		CombinationFound();
-		ShowCombination(targetList);
+		//CombinationFound(&list);
+		NewGhostFound(&list);
+		ShowCombination(list);
 
 		//bool razmazano = false;
 		while (
 			//razmazano =
 			//NewSolution::RebuildOnce(targetList, rightIndex, targetList[rightIndex])
-			NewSolution::RebuildCombination(targetList, rightIndex)
+			NewSolution::RebuildCombination(list, rightIndex)
 			)
 		{
 			--rightIndex;
@@ -651,13 +721,15 @@ namespace NewSolution {
 } // New Solution //
 
 namespace CombinationsFinder {
+
 	bool showResults = true;
+
 	/*    arr - array to store the combination
 	index - next location in array
 	num - given number
 	reducedNum - reduced number */
-	void findCombinationsUtil(int arr[], int index,
-		int num, int reducedNum)
+	void findCombinationsUtil( int arr[], int index,
+		int num, int reducedNum )
 	{
 		// Base condition 
 		if (reducedNum < 0)
@@ -668,7 +740,7 @@ namespace CombinationsFinder {
 		{
 			g_countOfCombinations++;
 			if (CombinationsFinder::showResults) {
-				NewSolution::SolutionIntContainer container(arr, arr+index);
+				SolutionIntContainer container(arr, arr + index);
 				
 				NewSolution::ShowCombination(container, nullptr//, true
 					);
@@ -686,8 +758,7 @@ namespace CombinationsFinder {
 
 		// note loop starts from previous number 
 		// i.e. at array location index - 1 
-		for (int k = prev; k <= num; k++)
-		{
+		for (int k = prev; k <= num; k++) {
 			// next element of array is k 
 			arr[index] = k;
 
@@ -700,8 +771,7 @@ namespace CombinationsFinder {
 	/* Function to find out all combinations of
 	positive numbers that add upto given number.
 	It uses findCombinationsUtil() */
-	void findCombinations(int n, bool showResults = true)
-	{
+	void findCombinations(int n, bool showResults = true) {
 		CombinationsFinder::showResults = showResults;
 
 		// array to store the combinations 
@@ -729,8 +799,7 @@ bool InitializeStreams()
 		g_outputStream.open("output.txt", std::ios::trunc);
 
 		return true;
-	}
-	catch (...) {
+	} catch (...) {
 		return false;
 	}
 }
@@ -753,7 +822,6 @@ void CloseStreams()
 	g_outputStream.close();
 }
 
-
 bool InitializeInputData() {
 	try {
 		//std::string firstString;
@@ -774,12 +842,10 @@ bool InitializeInputData() {
 		std::getline(g_inputStream, tempLine);
 		g_targetNumber = std::stoi(tempLine);;
 
-		if (g_threadCount == -1 || g_targetNumber == -1)
-		{
+		if (g_threadCount == -1 || g_targetNumber == -1) {
 			return false;
 		}
-	}
-	catch (...) {
+	} catch (...) {
 		return false;
 	}
 	
@@ -791,24 +857,17 @@ void SimulateInitialization() {
 	g_targetNumber = 10;
 }
 
-void RunMultiThreaded(bool showResults = false) {
+void RunMultiThreaded( bool showResults = false ) {
 	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
 	//simpleTimer = SimpleTimer::SimpleTimer();
-	CombinationsFinder::findCombinations(g_targetNumber, showResults);
+	CombinationsFinder::findCombinations( g_targetNumber, showResults );
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 	g_millisecondsSpentOutputStr = simpleTimer.StopMilliseconds();
 	//std::string timeSpent = simpleTimer.Stop();
 	//g_outputStream.write(timeSpent.c_str(), timeSpent.length());
 }
 
-void CombinationFound()
-{
-	g_countOfCombinations++;
-}
-
-
-
-
+std::list<SolutionIntContainer> NewSolution::CombinationSolver::ghostDescendants;
 
 void RunNewSolution(bool showResults = false) {
 	//g_targetNumber = targetNumber;
@@ -817,13 +876,16 @@ void RunNewSolution(bool showResults = false) {
 	
 	//int countOfCombinations = 0;
 	//NewSolution::ShowLists();
-	for (auto i = NewSolution::combinations.begin(); i != NewSolution::combinations.end(); i++)
+	for ( auto i = NewSolution::combinations.begin(); i != NewSolution::combinations.end(); i++ )
 	{
 		if (NewSolution::Difference(*i) == 0) {
 			g_countOfCombinations++;
 			NewSolution::ShowCombination((*i));
 			continue;
 		}
+
+		// TODO: check where we kill ghosts
+		NewSolution::CombinationSolver::KillGhosts();
 
 		NewSolution::FindAllSumsFixedLength(
 			*i//, 
@@ -856,9 +918,18 @@ void RunNewSolutionSingleThreaded(bool showResults = false)
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 }
 
+void TestCombinationHandler()
+{
+	NewSolution::CombinationSolver sCH;
+	SolutionIntContainer sIC;
+	sIC.push_back(1);
+	sCH.AddGhost(&sIC);
+	bool truth = sCH.FindGhost(&sIC);
+}
+
 int main()
 {
-	g_targetNumber = 10;
+ 	g_targetNumber = 30;
 	//std::cout << "C = " << Soch() << std::endl;
 
 	//Test();
@@ -884,12 +955,12 @@ int main()
 	if (
 		false
 		//!InitializeStreams()
-		) {
+	) {
 		std::cout << "File \"input.txt\" doesn't exist. Quiting..." << std::endl;
 		return 1;
 	}
 
-	if (!InitializeInputData()) {
+	if ( !InitializeInputData() ) {
 		std::cout << "Input file is currupted... Quiting..." << std::endl;
 		return 1;
 	}
