@@ -1,7 +1,4 @@
-// LabMultiThreading.cpp: ���������� ����� ����� ��� ����������� ����������.
-//
-
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include <fstream>
 #include <string>
 #include <iostream>
@@ -141,6 +138,113 @@ namespace CombinationsFinder {
 		g_countOfCombinations--;
 		delete[] arr;
 	}
+}
+
+
+namespace CombinationsFinder_MTT_Try {
+	bool showResults = true;
+	bool shutDownThreads = false;
+	bool endOfCalculations = false;
+	HANDLE sem;
+
+	std::vector<std::vector<int>> arraysToAnalyze;
+
+	/*    arr - array to store the combination
+	index - next location in array
+	num - given number
+	reducedNum - reduced number */
+	void findCombinationsUtil(std::vector<int> arr, int index,
+		int num, int reducedNum)
+	{
+		//if()
+		// Base condition 
+		if (reducedNum < 0)
+			return;
+
+		// If combination is found, print it 
+		if (reducedNum == 0)
+		{
+			g_countOfCombinations++;
+			if (CombinationsFinder::showResults) {
+				for (int i = 0; i < index; i++)
+					std::cout << arr[i] << " ";
+				std::cout << std::endl;
+			}
+			return;
+		}
+
+		// Find the previous number stored in arr[] 
+		// It helps in maintaining increasing order 
+		int prev = (index == 0) ? 1 : arr[index - 1];
+
+		// note loop starts from previous number 
+		// i.e. at array location index - 1 
+		for (int k = prev; k <= num; k++)
+		{
+			// next element of array is k 
+			arr[index] = k;
+
+			// call recursively with reduced number 
+			findCombinationsUtil(std::vector<int>(arr), index + 1, num,
+				reducedNum - k);
+		}
+	}
+
+
+	/* Function to find out all combinations of
+	positive numbers that add upto given number.
+	It uses findCombinationsUtil() */
+	void findCombinations(int n, bool showResults = true)
+	{
+		CombinationsFinder::showResults = showResults;
+
+		// array to store the combinations 
+		// It can contain max n elements 
+		//int arr[n];
+
+		//dynamic array
+		std::vector<int> arr = std::vector<int>(n);
+
+		//find all combinations 
+		findCombinationsUtil(arr, 0, n, n);
+
+		g_countOfCombinations--;
+	}
+
+
+	DWORD WINAPI AnalyseCombination(LPVOID lpParam)
+	{
+		// lpParam not used in this example
+		UNREFERENCED_PARAMETER(lpParam);
+
+		DWORD dwWaitResult;
+		BOOL bContinue = TRUE;
+
+		while (!endOfCalculations && !shutDownThreads)
+		{
+			// Try to enter the semaphore gate.
+
+			dwWaitResult = WaitForSingleObject(
+				sem,				// handle to semaphore
+				INFINITE);			// infinite time-out interval
+
+			switch (dwWaitResult)
+			{
+				// The semaphore object was signaled.
+			case WAIT_OBJECT_0:
+
+				// Perform task
+				
+
+				// The semaphore was nonsignaled, so a time-out occurred.
+			case WAIT_TIMEOUT:
+				printf("Thread %d: wait timed out\n", GetCurrentThreadId());
+				break;
+			}
+		}
+		return TRUE;
+	}
+
 }
 
 
@@ -582,16 +686,22 @@ bool InitializeInputData() {
 	return true;
 }
 
-void Run() {
+void SimulateInitialization() {
+	g_threadCount = 2;
+	g_targetNumber = 10;
+}
+
+void Run(bool showResults = false) {
+	g_countOfCombinations = 0;
 	SimpleTimer::SimpleTimer simpleTimer;
-	CombinationsFinder::findCombinations(g_targetNumber, false);
+	CombinationsFinder::findCombinations(g_targetNumber, showResults);
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 }
 
-void RunMultiThreaded() {
+void RunMultiThreaded(bool showResults = false) {
 	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
 	//simpleTimer = SimpleTimer::SimpleTimer();
-	CombinationsFinder_MultiThreaded::findCombinations(g_targetNumber, false);
+	CombinationsFinder::findCombinations(g_targetNumber, showResults);
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 	g_millisecondsSpentOutputStr = simpleTimer.StopMilliseconds();
 	//std::string timeSpent = simpleTimer.Stop();
@@ -599,18 +709,87 @@ void RunMultiThreaded() {
 }
 
 namespace NewSolution {
-	std::list<std::list<int>> combinations;
+	typedef std::vector<int> SolutionIntContainer;
+	typedef std::vector<int>::reverse_iterator ReverseIterator;
 
+	std::list<SolutionIntContainer> combinations;
+
+	bool RebuildOnce(SolutionIntContainer& targetList, ReverseIterator right) {
+		for (; right != targetList.rend(); right++) {
+			for (auto left = std::next(right); left != targetList.rend(); left++) {
+				// if two near elements are equal 
+				if ( (*right) == (*left) )
+					continue;
+				// if the left element is greater than the right element by 2
+				if ( (*right) > (*left) + 1 )  {
+					if ( ((*left) + 1) <= targetList.back() ) {
+						auto prev = std::prev(right);
+						if (prev != targetList.rend())
+						{
+							if ((*prev) < (*right)) {
+								(*right) = (*right) - 1;
+								(*left) = (*left) + 1;
+							}
+						}
+						//RebuildNext(targetList, left);
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	//bool RebuildNext(std::list<int>& targetList, ListIterator right) {
+	//	for (auto left = std::next(right); left != targetList.rend(); left++) {
+	//		if ((*right) == (*left))
+	//			continue;
+	//		// if the left element is greater than the right element by 2
+	//		if ((*right) > (*left) + 1) {
+	//			(*right) = (*right) - 1;
+	//			(*left) = (*left) + 1;
+	//			RebuildNext(targetList, left);
+	//			return true;
+	//		}
+	//	}
+	//}
+
+	int Difference(int sum)
+	{
+		return g_targetNumber - sum;
+	}
+
+	int Difference(SolutionIntContainer& targetList) {
+		int sum = 0;
+		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+			sum += (*it);
+		}
+		return Difference(sum);
+	}
+
+	void ShowList(SolutionIntContainer& list)
+	{
+		for (auto i = list.begin(); i != list.end(); i++) {
+			std::cout << (*i) << " ";
+		}
+		std::cout << std::endl;
+	}
 	void InitializeCombinations()
 	{
-		for (int i = g_targetNumber; i >= 0; i--)
+		for (int i = g_targetNumber; i > 1; i--)
 		{
-			std::list<int> newList = std::list<int>();
+			SolutionIntContainer newList = SolutionIntContainer();
 			for (int k = 0; k < i; k++) {
-				newList.push_front(1);
+				newList.push_back(1);
 			}
-			combinations.push_front(newList);
+			combinations.push_back(newList);
 		}
+	}
+
+	ReverseIterator CopyIterator(SolutionIntContainer& source, ReverseIterator& sourceIterator, SolutionIntContainer& target) {
+		ReverseIterator targetIterator = target.rbegin();
+		std::advance(targetIterator, std::distance(source.rbegin(), sourceIterator));
+		return targetIterator;
 	}
 
 	//Debug
@@ -624,19 +803,121 @@ namespace NewSolution {
 			std::cout << std::endl;
 		}
 	}
+
+	void FindAllCombinationsForAList(SolutionIntContainer& targetList) {
+		int size = targetList.size();
+		auto back = targetList.rbegin();
+		*back = size;
+		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+			//(*it) = size--;
+			std::cout << (*it) << " ";
+
+		}
+		std::cout << std::endl;
+	}
+
+	void FindAllFittingSums(SolutionIntContainer& targetList, ReverseIterator iterator, int targetNumber, bool firstRun = false) {
+		int rebuilt = 0;
+		auto right = firstRun ? targetList.rbegin() : next(iterator);
+		firstRun = false;
+		for (; right != targetList.rend(); right++) {
+			auto left = std::next(right);
+			int difference = 0;
+			while ((difference = Difference(targetList)) > 0)
+			{
+				if ((*right) == targetNumber) {
+					break;
+				}
+				// if the left element is greater than the right element by 2
+				//if()
+				if (right == iterator) {
+					(*right)++;
+				} else if( ((*right)+1) <= (*iterator) )
+					(*right)++;
+			}
+			
+			// first solution found
+			//ShowList(targetList);
+			//g_countOfCombinations++;
+
+			bool razmazano = false;
+			while (razmazano = NewSolution::RebuildOnce(targetList, right)) {
+				// new rebuilt solution found
+				std::cout << g_countOfCombinations << ") \t";
+				ShowList(targetList);
+				rebuilt++;
+				g_countOfCombinations++;
+				SolutionIntContainer newList = SolutionIntContainer(targetList);
+				ReverseIterator newListIterator = CopyIterator(targetList, right, newList);
+				FindAllFittingSums(newList, newListIterator, targetNumber - (*right), false);
+			}
+			//if (razmazano)
+			//	return;
+			//if(rebuilt == 0 && !razmazano)
+			//	ShowList(targetList);
+			//offset++;
+		}
+	}
+}
+
+void Test()
+{
+	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(4);
+	NewSolution::ShowList(lst);
+	NewSolution::RebuildOnce(lst, lst.rbegin());
+	NewSolution::ShowList(lst);
+	NewSolution::RebuildOnce(lst, lst.rbegin());
+	NewSolution::ShowList(lst);
+	NewSolution::RebuildOnce(lst, lst.rbegin());
+	NewSolution::ShowList(lst);
+}
+
+void TestFindAllFittings()
+{
+	g_targetNumber = 8;
+	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1);
+		NewSolution::ShowList(lst);
+	NewSolution::FindAllFittingSums(lst, lst.rbegin(), g_targetNumber, true);
+}
+
+void RunNewSolution(int targetNumber) {
+	g_targetNumber = targetNumber;
+	g_countOfCombinations = 0;
+	NewSolution::InitializeCombinations();
+	
+	//NewSolution::ShowLists();
+	for (auto i = NewSolution::combinations.begin(); i != NewSolution::combinations.end(); i++)
+	{
+		NewSolution::FindAllFittingSums(*i, i->rbegin(), g_targetNumber, true);
+	}
+	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
+	std::cout << "*** New Solution Execution Completed ***" << std::endl;
 }
 
 int main()
 {
-	//NewSolution::InitializeCombinations();
+	//TestFindAllFittings();
+	RunNewSolution(15);
+	Run(false);
+	system("pause");
+	return 0;
+	RunNewSolution(15);
+	Run(true);
+
+	system("pause");
+	return 0;
+	SimulateInitialization();
+	NewSolution::InitializeCombinations();
 	//NewSolution::ShowLists();
-	//system("pause");
-	//return 0;
+	NewSolution::FindAllCombinationsForAList(NewSolution::combinations.front());
+	NewSolution::FindAllFittingSums(NewSolution::combinations.front(), NewSolution::combinations.front().rbegin(), g_targetNumber, true);
+	system("pause");
+	return 0;
 	g_countOfCombinations = 0;
 
 	if (
-		//false
-		!InitializeStreams()
+		false
+		//!InitializeStreams()
 		) {
 		std::cout << "File \"input.txt\" doesn't exist. Quiting..." << std::endl;
 		return 1;
@@ -647,11 +928,11 @@ int main()
 		return 1;
 	}
 
-	//Run();
-	RunMultiThreaded();
+	Run(true);
+	//RunMultiThreaded();
 
-	Output();
-	CloseStreams();
+	//Output();
+	//CloseStreams();
 	
 	system("pause");
     return 0;
