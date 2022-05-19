@@ -9,6 +9,7 @@
 #include <Windows.h>
 #include <chrono>
 #include <queue>
+#include <list>
 	
 CRITICAL_SECTION cs;
 
@@ -23,9 +24,63 @@ std::vector<int> g_possibleCurrentNumbers;
 
 int g_countOfCombinations = 0;
 int g_targetNumber = 0;
+std::string g_millisecondsSpentOutputStr;
+
+namespace SimpleTimer {
+	class SimpleTimer
+	{
+	public:
+
+		SimpleTimer::SimpleTimer()
+		{
+			start = std::chrono::high_resolution_clock::now();
+			stopped = false;
+		}
+
+		std::string SimpleTimer::Stop()
+		{
+			end = std::chrono::high_resolution_clock::now();
+			duration = end - start;
+			float result = duration.count();
+			std::string strResult;
+
+			strResult.append("Time spent: ");
+			strResult.append(std::to_string(result));
+			strResult.append("seconds");
+			strResult.append("\n");
+			return strResult;
+		}
+
+		std::string SimpleTimer::StopMilliseconds()
+		{
+			stopped = true;
+			end = std::chrono::high_resolution_clock::now();
+			duration = end - start;
+			auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+			std::string strResult;
+
+			strResult.append(std::to_string(millis));
+			return strResult;
+		}
+
+		SimpleTimer::~SimpleTimer()
+		{
+			if (stopped)
+				return;
+			end = std::chrono::high_resolution_clock::now();
+			duration = end - start;
+			float result = duration.count();
+			std::cout << "Time spent: " << result << " seconds" << std::endl;
+		}
+	private:
+		std::chrono::time_point<std::chrono::steady_clock> start, end;
+		std::chrono::duration<float> duration;
+		bool stopped;
+	};
+}
 
 namespace CombinationsFinder {
-
+	bool showResults = true;
 	/*    arr - array to store the combination
 	index - next location in array
 	num - given number
@@ -41,10 +96,11 @@ namespace CombinationsFinder {
 		if (reducedNum == 0)
 		{
 			g_countOfCombinations++;
-
-			for (int i = 0; i < index; i++)
-				std::cout << arr[i] << " ";
-			std::cout << std::endl;
+			if (CombinationsFinder::showResults) {
+				for (int i = 0; i < index; i++)
+					std::cout << arr[i] << " ";
+				std::cout << std::endl;
+			}
 			return;
 		}
 
@@ -68,8 +124,10 @@ namespace CombinationsFinder {
 	/* Function to find out all combinations of
 	positive numbers that add upto given number.
 	It uses findCombinationsUtil() */
-	void findCombinations(int n)
+	void findCombinations(int n, bool showResults = true)
 	{
+		CombinationsFinder::showResults = showResults;
+
 		// array to store the combinations 
 		// It can contain max n elements 
 		//int arr[n];
@@ -86,11 +144,14 @@ namespace CombinationsFinder {
 }
 
 
-namespace CombinationsFinder_MultiThreaded2 {
+namespace CombinationsFinder_MultiThreaded {
 	// Семафор для ограничения количества одновременно выполняемых потоков
 	HANDLE sem;
 	HANDLE* threads;
+	bool showResults = true;
+	bool shutDownThreads = false;
 
+	int countOfCombinationsInMemory = 0;
 
 	class Combination {
 	public:
@@ -125,6 +186,7 @@ namespace CombinationsFinder_MultiThreaded2 {
 
 	std::queue<Combination> combinations;
 	bool endOfCalculations;
+	const int MAX_INSTANCES_IN_MEMORY = 8000;
 	/*    arr - array to store the combination
 	index - next location in array
 	num - given number
@@ -140,12 +202,23 @@ namespace CombinationsFinder_MultiThreaded2 {
 		if (reducedNum == 0)
 		{
 			//wait until all working threads clear the combinations buffer
-			while (combinations.size() > g_threadCount) {
+			//if (combinations.size() > MAX_INSTANCES_IN_MEMORY) {
+			//	while (combinations.size() > g_threadCount) {
+			//		Sleep(5);
+			//	}
+			//}
+			
+			if (countOfCombinationsInMemory > MAX_INSTANCES_IN_MEMORY) {
 				Sleep(5);
 			}
+
 			// add a combination to check if the condition is met
 			Combination cmb(arr, index);
 			combinations.push(cmb);
+			countOfCombinationsInMemory++;
+
+			//remove the line
+			//combinations.pop();
 			return;
 		}
 
@@ -174,7 +247,7 @@ namespace CombinationsFinder_MultiThreaded2 {
 		DWORD dwWaitResult;
 		BOOL bContinue = TRUE;
 
-		while (!endOfCalculations)
+		while (!endOfCalculations && !shutDownThreads)
 		{
 			// Try to enter the semaphore gate.
 
@@ -188,10 +261,10 @@ namespace CombinationsFinder_MultiThreaded2 {
 				case WAIT_OBJECT_0:
 
 					// Perform task
-					if (!combinations.empty()) {
+					if(countOfCombinationsInMemory > 0) {
+					//if (!combinations.empty()) {
 						Combination cmb = Combination(combinations.front().vector, combinations.front().index);
-						//EnterCriticalSection(&cs);
-
+						
 						//int sum = 0;
 						//// If combination is found, print it 
 						//for (int i = 0; i < cmb->index; i++)
@@ -204,23 +277,29 @@ namespace CombinationsFinder_MultiThreaded2 {
 							g_countOfCombinations++;
 
 							//EnterCriticalSection(&cs);
-							std::cout << g_countOfCombinations << ") ";
+							//std::cout << g_countOfCombinations << ") ";
 
-							int i = 0;
 							//for (int i = 0; i < cmb->index; i++)
 							//	std::cout << (*cmb->vector)[i] << " ";
-							for (auto it = cmb.vector.begin(); it != cmb.vector.end(); it++)
-							{
-								std::cout << *it << " ";
-							}
+							if (CombinationsFinder_MultiThreaded::showResults) {
+								int i = 0;
 
-							std::cout << std::endl;
+								std::string output;
+								for (auto it = cmb.vector.begin(); it != cmb.vector.end(); it++)
+								{
+									output.append(std::to_string(*it));
+									output.append(" ");
+								}
+
+								EnterCriticalSection(&cs);
+									std::cout << output << std::endl;
+								LeaveCriticalSection(&cs);
+							}
 							//LeaveCriticalSection(&cs);
 
 							//break;
 						}
-						combinations.pop();
-						//LeaveCriticalSection(&cs);
+						combinations.pop();	countOfCombinationsInMemory--;
 					}
 
 					// Release the semaphore when task is finished
@@ -245,10 +324,17 @@ namespace CombinationsFinder_MultiThreaded2 {
 
 	/* Function to find out all combinations of
 	positive numbers that add upto given number.
-	It uses findCombinationsUtil() */
-	void findCombinations(int n)
+	It uses findCombinationsUtil() 
+	n – target number
+	showResults – output reulting string into std::cout
+	*/
+	void findCombinations(int n, bool showResults = true)
 	{
+		shutDownThreads = false;
+		countOfCombinationsInMemory = 0;
 		g_countOfCombinations = 0;
+		g_targetNumber = n;
+		CombinationsFinder_MultiThreaded::showResults = showResults;
 		sem = CreateSemaphore(
 			NULL,           // default security attributes
 			1,				// initial count
@@ -286,18 +372,15 @@ namespace CombinationsFinder_MultiThreaded2 {
 			}
 		}
 		endOfCalculations = false;
-		// array to store the combinations 
-		// It can contain max n elements 
-		//int arr[n];
 
-		//dynamic array
+		//dynamic container (vector)
 		std::vector<int> arr(n);
 
 		//find all combinations 
 		findCombinationsUtil(arr, 0, n, n);
 
 		endOfCalculations = true;
-
+		shutDownThreads = true;
 		// Wait for all threads to terminate
 		WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
 
@@ -310,11 +393,18 @@ namespace CombinationsFinder_MultiThreaded2 {
 
 		// Release resources used by the critical section object.
 		DeleteCriticalSection(&cs);
-		//g_countOfCombinations--;
+
+		if (countOfCombinationsInMemory > 0) {
+			g_countOfCombinations += countOfCombinationsInMemory;
+			Sleep(100);
+		}
+		g_countOfCombinations--;
 	}
 }
 
-namespace SemaphoreTry {
+// The base code for our application semaphore
+// From MSSDN
+namespace SemaphoreMSDN {
 
 #define MAX_SEM_COUNT 10
 #define THREADCOUNT 12
@@ -425,188 +515,33 @@ namespace SemaphoreTry {
 	}
 }
 
-namespace CombinationsFinder_MultiThreaded {
-
-	typedef struct Arguments {
-		std::vector<int> arg1; int arg2; int arg3; int arg4;
-	};
-
-	//std::vector<std::vector<int>>* g_tempArraysWithCombinations = 
-	//new std::vector<std::vector<int>>( );
-	//delete g_tempArraysWithCombinations;
-	std::vector<std::vector<int>> g_combinationsArrays;
-	std::vector<Arguments> g_arraysWithArguments;
-	int g_threadIndex = 0;
-
-	//void 
-
-	void ShowArrays()
-	{
-		int i = 0;
-		for (auto arrayIt = g_combinationsArrays.begin(); arrayIt != g_combinationsArrays.end(); arrayIt++, i++) {
-			for (auto combinationIt = arrayIt->begin(); combinationIt != arrayIt->end(); combinationIt++)
-			{
-				std::cout << *combinationIt << " ";
-			}
-			std::cout << std::endl;
-		}
-	}
-
-	//arr - array to store the combination
-	std::vector<int> arr;
-	std::vector<int> indexes;
-	std::vector<int> reducedNumbers;
-	std::vector<int> previousNumbers;
-	int targetNumber;
-
-
-	bool ReturnCondition() {
-		// Base condition 
-		if (reducedNumbers.back() < 0) {
-			return true;
-		}
-
-		// If combination is found, print it 
-		if (reducedNumbers.back() == 0) {
-			g_countOfCombinations++;
-
-			for (int i = 0; i < indexes.back(); i++)
-				std::cout << arr[i] << " ";
-			std::cout << std::endl;
-			return true;
-		}
-		return false;
-	}
-
-	//index - next location in array
-	//num - given number
-	//reducedNum - reduced number */
-	void findCombinationsUtil()
-	{
-			// Find the previous number stored in arr[] 
-			// It helps in maintaining increasing order 
-			previousNumbers.push_back((indexes.back() == 0) ? 1 : arr[indexes.back() - 1]);
-
-			// note loop starts from previous number 
-			// i.e. at array location index - 1 
-			for (int k = previousNumbers.back(); k <= targetNumber; k++)
-			{
-				previousNumbers.pop_back();
-				// next element of array is k 
-				arr[indexes.back()] = k;
-
-				while (true) {
-					if (!ReturnCondition()) {
-						previousNumbers.push_back((indexes.back() == 0) ? 1 : arr[indexes.back() - 1]);
-						indexes.push_back(indexes.back() + 1);
-						// call recursively with reduced number 
-						reducedNumbers.push_back(reducedNumbers.back() - k);
-
-						for (int j = previousNumbers.back(); j <= targetNumber; j++)
-						{
-							previousNumbers.pop_back();
-							arr[indexes.back()] = j;
-						}
-					} else {
-						reducedNumbers.pop_back();
-						indexes.pop_back();
-						previousNumbers.pop_back();
-						break;
-					}
-				} 
-
-				// save arguments that for the functions to call
-			}
-	}
-
-	/* Function to find out all combinations of
-	positive numbers that add upto given number.
-	It uses findCombinationsUtil() */
-	void findCombinations(int n)
-	{
-		// array to store the combinations 
-		// It can contain max n elements 
-		//int arr[n];
-
-		//dynamic array
-		//int* arr = new int[n];
-
-		//vector
-		arr = std::vector<int>();
-		arr.resize(n);
-
-		//resized count of arrays in accordance with count of threads
-		g_combinationsArrays.resize(g_threadCount);
-		g_arraysWithArguments.resize(g_threadCount);
-
-												//��������, 5
-		for (int threadIndex = 0; threadIndex < g_threadCount; threadIndex++)
-		{
-			g_combinationsArrays[threadIndex].resize(n);
-		}
-
-		//debug
-		//ShowArrays();
-		//return;
-
-		//find all combinations 
-		targetNumber = n;
-		reducedNumbers.push_back(n);
-		indexes.push_back(0);
-		findCombinationsUtil();
-
-		g_countOfCombinations--;
-	}
-}
-
-namespace SimpleTimer {
-	class SimpleTimer
-	{
-	public:
-
-		SimpleTimer::SimpleTimer()
-		{
-			start = std::chrono::high_resolution_clock::now();
-		}
-
-		std::string SimpleTimer::Stop()
-		{
-			end = std::chrono::high_resolution_clock::now();
-			duration = end - start;
-			float result = duration.count();
-			std::string strResult;
-
-			strResult.append("Time spent: ");
-			strResult.append(std::to_string(result));
-			strResult.append("seconds");
-			strResult.append("\n");
-			return strResult;
-		} 
-
-		SimpleTimer::~SimpleTimer()
-		{
-			end = std::chrono::high_resolution_clock::now();
-			duration = end - start;
-			float result = duration.count();
-			std::cout << "Time spent: " << result << " seconds" << std::endl;
-		}
-	private:
-		std::chrono::time_point<std::chrono::steady_clock> start, end;
-		std::chrono::duration<float> duration;
-	};
-}
-
 bool InitializeStreams()
 {
-	g_inputStream = std::ifstream();
-	g_inputStream.open("input.txt");
+	try {
+		g_inputStream = std::ifstream();
+		g_inputStream.open("input.txt");
 
-	g_outputStream = std::ofstream();
-	g_outputStream.open("output.txt");
+		g_outputStream = std::ofstream();
+		g_outputStream.open("output.txt", std::ios::trunc);
 
-	return true;
+		return true;
+	}
+	catch (...) {
+		return false;
+	}
 }
 
+void Output()
+{
+	g_outputStream << g_threadCount;
+	g_outputStream << std::endl;
+
+	g_outputStream << g_targetNumber;
+	g_outputStream << std::endl;
+
+	g_outputStream << g_millisecondsSpentOutputStr;
+	g_outputStream << std::endl;
+}
 
 void CloseStreams() 
 {
@@ -615,88 +550,109 @@ void CloseStreams()
 }
 
 
-void InitializeInputData() {
-	std::string firstString;
+bool InitializeInputData() {
+	try {
+		//std::string firstString;
 
-	//������� �������������� �� ������ � �����
-	//...
-	//���������� ������� �������� ����
-	g_threadCount = 2;
+		//g_threadCount = 2;
 
-	std::string secondString;
-	//������� �������������� �� ����� � �����
-	//...
-	g_minNumber = 2;
-	g_maxNumber = 100;
-}
+		//std::string secondString;
+		//g_minNumber = 2;
+		//g_maxNumber = 100;
 
-bool CheckForSum()
-{
-	//TODO:
+		g_threadCount = -1;
+		g_targetNumber = -1;
+
+		std::string tempLine;
+		std::getline(g_inputStream, tempLine);
+		g_threadCount = std::stoi(tempLine);
+
+		std::getline(g_inputStream, tempLine);
+		g_targetNumber = std::stoi(tempLine);;
+
+		if (g_threadCount == -1 || g_targetNumber == -1)
+		{
+			return false;
+		}
+	}
+	catch (...) {
+		return false;
+	}
+	
 	return true;
 }
 
-//��������, ��� ����� ���� ��� �������
-bool IdenticalPairExistsAlready()
-{
-	//TODO:
-	return true;
+void Run() {
+	SimpleTimer::SimpleTimer simpleTimer;
+	CombinationsFinder::findCombinations(g_targetNumber, false);
+	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 }
 
-void HandleNumbers()
-{
-	//enter semaphor
-	//waitforsingleobject()
-
-	g_countOfCombinations++;
-
-	//leave semaphor
-	//release_semaphor
+void RunMultiThreaded() {
+	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
+	//simpleTimer = SimpleTimer::SimpleTimer();
+	CombinationsFinder_MultiThreaded::findCombinations(g_targetNumber, false);
+	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
+	g_millisecondsSpentOutputStr = simpleTimer.StopMilliseconds();
+	//std::string timeSpent = simpleTimer.Stop();
+	//g_outputStream.write(timeSpent.c_str(), timeSpent.length());
 }
 
-void AddElementNumbers(std::vector<int> pairToAdd)
-{
-	EnterCriticalSection(&cs);
+namespace NewSolution {
+	std::list<std::list<int>> combinations;
 
-	//g_allPairs.push_back(g_possibleCurrentNumbers);
+	void InitializeCombinations()
+	{
+		for (int i = g_targetNumber; i >= 0; i--)
+		{
+			std::list<int> newList = std::list<int>();
+			for (int k = 0; k < i; k++) {
+				newList.push_front(1);
+			}
+			combinations.push_front(newList);
+		}
+	}
 
-	LeaveCriticalSection(&cs);
+	//Debug
+	void ShowLists()
+	{
+		for (auto it1 = combinations.begin(); it1 != combinations.end(); it1++)
+		{
+			for(auto it2 = it1->begin(); it2 != it1->end() ; it2++){
+				std::cout << (*it2) << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
 }
-
-void FindCombination(int* combination, int maxIndex)
-{
-
-}
-
 
 int main()
 {
-	SimpleTimer::SimpleTimer simpleTimer;
+	//NewSolution::InitializeCombinations();
+	//NewSolution::ShowLists();
+	//system("pause");
+	//return 0;
 	g_countOfCombinations = 0;
 
-	if (false
-		//!InitializeStreams()
+	if (
+		//false
+		!InitializeStreams()
 		) {
-		std::cout << "����� \"input.txt\" �� �������." << std::endl;
-		//return 0;
+		std::cout << "File \"input.txt\" doesn't exist. Quiting..." << std::endl;
+		return 1;
 	}
 
-	InitializeInputData();
+	if (!InitializeInputData()) {
+		std::cout << "Input file is currupted... Quiting..." << std::endl;
+		return 1;
+	}
 
-	//CombinationsFinder_MultiThreaded::findCombinations(5);
-	//CombinationsFinder::findCombinations(15);
+	//Run();
+	RunMultiThreaded();
 
-	CombinationsFinder_MultiThreaded2::findCombinations(10);
-
-	//Calculate(5);
-
-	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
-
-	//std::string timeSpent = simpleTimer.Stop();
-	//g_outputStream.write(timeSpent.c_str(), timeSpent.length());
-	simpleTimer.~SimpleTimer();
-
-	//CloseStreams();
+	Output();
+	CloseStreams();
+	
 	system("pause");
     return 0;
 }
