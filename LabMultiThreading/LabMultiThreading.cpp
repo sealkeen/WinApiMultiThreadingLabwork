@@ -22,10 +22,6 @@ std::ifstream g_inputStream;
 std::ofstream g_outputStream;
 
 int g_threadCount;
-int g_minNumber = 2, g_maxNumber = 100;
-
-std::vector<int> g_possibleCurrentNumbers;
-
 int g_countOfCombinations = 0;
 int g_targetNumber = 0;
 std::string g_millisecondsSpentOutputStr;
@@ -112,9 +108,6 @@ namespace NewSolution {
 
 	class CombinationStorage {
 	private:
-		//int * digit;
-		//SolutionCombinationHandler* ancestor;
-		//std::list<SolutionIntContainer> descendents;
 		std::list<SolutionIntContainer> descendants;
 	public:
 		// constructors 
@@ -222,20 +215,6 @@ namespace NewSolution {
 
 			return IncludingIndexDifference(sum, reductionOffset);
 		}
-
-		//int ReducedIncludingIndexDifference(SolutionIntContainer& list, ReverseIterator rightIndex) {
-		//	int sum = 0;
-		//	for (int i = 0; i <= rightIndex; i++) {
-		//		sum += list[i];
-		//	}
-		//	int reductionOffset = 0;
-		//	for (int i = (rightIndex+1); i < list.size(); i++)
-		//	{
-		//		reductionOffset += list[i];
-		//	}
-
-		//	return IncludingIndexDifference(sum, reductionOffset);
-		//}
 
 		int Difference(std::list<int>& targetList) {
 			int sum = 0;
@@ -571,7 +550,7 @@ namespace NewSolution {
 
 		static DWORD WINAPI FindAllSumsFixedLengthMT2(LPVOID pListHandler)
 		{
-			WriteLineThreadBlocking("Entered thread");
+			//WriteLineThreadBlocking("Entered thread");
 			ListHandler* pLH = (ListHandler*)pListHandler;
 
 			DWORD dwWaitResult;
@@ -580,28 +559,27 @@ namespace NewSolution {
 			// Try to enter the semaphore gate.
 
 			dwWaitResult = WaitForSingleObject(
-				sem,   // handle to semaphore
-				INFINITE);           // zero-second time-out interval
+				sem,		// handle to semaphore
+				INFINITE);  // zero-second time-out interval
 
 			int rightIndex = 0;
 			int left = 0;
 			int difference = g_targetNumber;
 
-			std::string strSucceded = std::string();
-			strSucceded.append("Thread ");
-			strSucceded.append(std::to_string(GetCurrentThreadId()));
-			strSucceded.append(": wait succeeded\n");
+			//std::string strSucceded = std::string();
+			//strSucceded.append("Thread ");
+			//strSucceded.append(std::to_string(GetCurrentThreadId()));
+			//strSucceded.append(": wait succeeded\n");
 
 			switch (dwWaitResult)
 			{
 				// The semaphore object was signaled.
 			case WAIT_OBJECT_0:
-				// TODO: Perform task
-				WriteLineThreadBlocking(strSucceded.c_str());
+				//// TODO: Perform task
+				//WriteLineThreadBlocking(strSucceded.c_str());
 				bContinue = FALSE;
 
-				// Simulate thread spending time on task
-				WriteLineThreadBlocking("Entered Task");
+				//WriteLineThreadBlocking("Entered Task");
 				//std::cout << "Entered Task" << std::endl;
 
 				ShowList(pLH->sourceList);
@@ -633,13 +611,13 @@ namespace NewSolution {
 					1,            // increase count by one
 					NULL))       // not interested in previous count
 				{
-					printf("ReleaseSemaphore error: %d\n", GetLastError());
+					//printf("ReleaseSemaphore error: %d\n", GetLastError());
 				}
 				break;
 
 				// The semaphore was nonsignaled, so a time-out occurred.
 			case WAIT_TIMEOUT:
-				printf("Thread %d: wait timed out\n", GetCurrentThreadId());
+				//printf("Thread %d: wait timed out\n", GetCurrentThreadId());
 				break;
 			}
 			delete pLH;
@@ -683,7 +661,7 @@ namespace NewSolution {
 
 					// The semaphore was nonsignaled, so a time-out occurred.
 				case WAIT_TIMEOUT:
-					printf("Thread %d: wait timed out\n", GetCurrentThreadId());
+					//printf("Thread %d: wait timed out\n", GetCurrentThreadId());
 					break;
 				}
 			}
@@ -693,74 +671,6 @@ namespace NewSolution {
 	}; // CombinationListHandler
 } // New Solution //
 
-namespace CombinationsFinder {
-
-	bool showResults = true;
-
-	/*    arr - array to store the combination
-	index - next location in array
-	num - given number
-	reducedNum - reduced number */
-	void findCombinationsUtil( int arr[], int index,
-		int num, int reducedNum )
-	{
-		// Base condition 
-		if (reducedNum < 0)
-			return;
-
-		// If combination is found, print it 
-		if (reducedNum == 0)
-		{
-			g_countOfCombinations++;
-			if (CombinationsFinder::showResults) {
-				SolutionIntContainer container(arr, arr + index);
-				
-				NewSolution::ListHandler::ShowCombination(container, nullptr//, true
-					);
-
-				//for (int i = 0; i < index; i++)
-				//	std::cout << arr[i] << " ";
-				//std::cout << std::endl;
-			}
-			return;
-		}
-
-		// Find the previous number stored in arr[] 
-		// It helps in maintaining increasing order 
-		int prev = (index == 0) ? 1 : arr[index - 1];
-
-		// note loop starts from previous number 
-		// i.e. at array location index - 1 
-		for (int k = prev; k <= num; k++) {
-			// next element of array is k 
-			arr[index] = k;
-
-			// call recursively with reduced number 
-			findCombinationsUtil(arr, index + 1, num,
-				reducedNum - k);
-		}
-	}
-
-	/* Function to find out all combinations of
-	positive numbers that add upto given number.
-	It uses findCombinationsUtil() */
-	void findCombinations(int n, bool showResults = true) {
-		CombinationsFinder::showResults = showResults;
-
-		// array to store the combinations 
-		// It can contain max n elements 
-		//int arr[n];
-
-		//dynamic array
-		int* arr = new int[n];
-
-		//find all combinations 
-		findCombinationsUtil(arr, 0, n, n);
-
-		g_countOfCombinations--;
-		delete[] arr;
-	}
-}
 
 bool InitializeStreams()
 {
@@ -797,21 +707,16 @@ void CloseStreams()
 
 bool InitializeInputData() {
 	try {
-		//std::string firstString;
-
-		//g_threadCount = 2;
-
-		//std::string secondString;
-		//g_minNumber = 2;
-		//g_maxNumber = 100;
 
 		g_threadCount = -1;
 		g_targetNumber = -1;
 
+		// Read count of threads from the file
 		std::string tempLine;
 		std::getline(g_inputStream, tempLine);
 		g_threadCount = std::stoi(tempLine);
 
+		// Read the target number from the file
 		std::getline(g_inputStream, tempLine);
 		g_targetNumber = std::stoi(tempLine);;
 
@@ -833,6 +738,7 @@ void SimulateInitialization(int targetNumber = 10, int threadCount = 2) {
 std::list<SolutionIntContainer> NewSolution::ListHandler::startingCombinations;
 
 void RunNewSolutionMultiThreaded2() {
+	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
 	g_countOfCombinations = 0;
 	NewSolution::ListHandler::InitializeCombinations();
 
@@ -890,27 +796,7 @@ void RunNewSolutionMultiThreaded2() {
 			printf("CreateThread error: %d\n", GetLastError());
 			return;
 		}
-
 	}
-
-	//for (int i = 0; i < g_threadCount; i++)
-	//{
-	//	threads[i] = CreateThread(
-	//		NULL,       // default security attributes
-	//		0,          // default stack size
-	//		(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT,
-	//		NULL,       // no thread function arguments
-	//		0,          // default creation flags
-	//		&ThreadID); // receive thread identifier
-
-	//	if (threads[i] == NULL)
-	//	{
-	//		printf("CreateThread error: %d\n", GetLastError());
-	//		return;
-	//	}
-	//}
-
-
 
 	// Wait for all threads to terminate
 	//WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
@@ -930,6 +816,10 @@ void RunNewSolutionMultiThreaded2() {
 	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	std::cout << "*** New Solution Execution Completed ***" << std::endl;
+
+	// Counting time spent
+	g_millisecondsSpentOutputStr = simpleTimer.StopMilliseconds();
+	std::cout << "Time spent: " << g_millisecondsSpentOutputStr << std::endl;
 }
 
 void RunNewSolutionMultiThreaded( ) {
@@ -1015,74 +905,30 @@ void RunNewSolution(bool showResults = false) {
 	std::cout << "*** New Solution Execution Completed ***" << std::endl;
 }
 
-void Run(bool showResults = false) {
-	g_countOfCombinations = 0;
-	SimpleTimer::SimpleTimer simpleTimer;
-	CombinationsFinder::findCombinations(g_targetNumber, showResults);
-	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
-}
-
-void RunNewSolutionSingleThreaded(bool showResults = false)
-{
-	g_countOfCombinations = 0;
-	SimpleTimer::SimpleTimer simpleTimer;
-	RunNewSolution(showResults);
-	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
-}
-
-void TestCombinationHandler()
-{
-	NewSolution::CombinationStorage sCH;
-	SolutionIntContainer sIC;
-	sIC.push_back(1);
-	sCH.AddDescendant(&sIC);
-	bool truth = sCH.FindDescendant(&sIC);
-}
-
 int main()
 {
-	SimulateInitialization(10, 1);
-	//std::cout << "C = " << Soch() << std::endl;
-
-	//Test();
-	//return 1;
-	//TestFindAllFittings();
-	//RunNewSolutionSingleThreaded(true);
-	RunNewSolutionMultiThreaded2();
-	Run(true);
-	//Run_MT2(true);
-	system("pause");
-	return 0;
-	RunNewSolution(15);
-	Run(true);
-
-	system("pause");
-	return 0;
-	//NewSolution::InitializeCombinations();
-	system("pause");
-	return 0;
 	g_countOfCombinations = 0;
 
 	if (
-		false
-		//!InitializeStreams()
+		!InitializeStreams()
 	) {
 		std::cout << "File \"input.txt\" doesn't exist. Quiting..." << std::endl;
+		system("pause");
 		return 1;
 	}
 
 	if ( !InitializeInputData() ) {
 		std::cout << "Input file is currupted... Quiting..." << std::endl;
+		system("pause");
 		return 1;
 	}
 
-	Run(true);
-	//RunMultiThreaded();
+	RunNewSolutionMultiThreaded2();
 
-	//Output();
-	//CloseStreams();
-	
+	Output();
+	CloseStreams();
 	system("pause");
+	
     return 0;
 }
 
