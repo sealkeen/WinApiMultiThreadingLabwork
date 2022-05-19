@@ -25,7 +25,6 @@ int g_countOfCombinations = 0;
 int g_targetNumber = 0;
 std::string g_millisecondsSpentOutputStr;
 
-
 void CombinationFound();
 
 namespace SimpleTimer {
@@ -87,15 +86,31 @@ namespace NewSolution {
 
 	std::list<SolutionIntContainer> combinations;
 
-	bool RightIsGreaterOrEqual(int left, int right);
-	void ShowCombination(SolutionIntContainer& container, std::string* additionalContents = nullptr, bool reversed = false);
+	bool RightIsGreater(int left, int right, int offset) {
+		if (right > (left + offset))
+			return true;
+		return false;
+	}
+
+	bool RightIsGreaterOrEqual(int left, int right) {
+		if (right >= left)
+			return true;
+		return false;
+	}
+
+	int TakeValue(SolutionIntContainer& list, int index) {
+		if (index < 0 || index >= list.size())
+			return -1;
+		return list[index];
+	}
 
 	int IncludingIndexDifference(int sum, int reductionOffset)
 	{
 		return (g_targetNumber - reductionOffset) - sum;
 	}
 
-	bool CheckOrderWithDifference(SolutionIntContainer& list, int maxIndex) {
+	//Tested OK 10:47 PM 5/23/2019
+	bool CheckOrder(SolutionIntContainer& list, int maxIndex) {
 		// TODO: optimize 
 		int leftI = 0, rightI = 1;
 		int sum = list[leftI];
@@ -114,65 +129,43 @@ namespace NewSolution {
 		return IncludingIndexDifference(sum, reductionOffset);
 	}
 
-	void Inc(SolutionIntContainer& list, int index) {
 
-		if (index < 0 || index >= list.size())
-			return;
-		list[index] = list[index] + 1;
-	}
-
-	void Dec(SolutionIntContainer& list, int index) {
-		if (index < 0 || index >= list.size())
-			return;
-		list[index] = list[index] - 1;
-	}
-
-	SolutionIntContainer TryDecAndInc(SolutionIntContainer& list, int reductionIndex, int increasingIndex)
+	int Difference(int sum)
 	{
-		SolutionIntContainer resultingList = SolutionIntContainer(list);
-		Dec(resultingList, reductionIndex);
-		Inc(resultingList, increasingIndex);
-		return resultingList;
+		return g_targetNumber - sum;
 	}
 
-	bool CheckForNewCombination(SolutionIntContainer list, int rightIndex, int leftIndex)
-	{
-		if ((list[rightIndex] - 1) >= list[leftIndex])
-			if ((list[leftIndex] + 1) <= list[rightIndex]) {
-				CombinationFound();
-				ShowCombination(list);
-				return true;
-			}
-		return false;
-	}
 
-	bool TryGhostGlideContainer(SolutionIntContainer list, int rightIndex) {
-
-		bool result = false;
-		// Find the first element (leftLeft)
-		// that's left to the left element
-		int leftLeftI = rightIndex - 2;
-
-		//if (  )
-		//{
-
-		while (leftLeftI >= 0) {
-			SolutionIntContainer newTryList = TryDecAndInc(list, rightIndex, leftLeftI);
-
-			if (CheckOrderWithDifference(newTryList, rightIndex) <= 0) {
-				CheckForNewCombination(list, rightIndex, leftLeftI);
-				TryGhostGlideContainer(newTryList, rightIndex - 1);
-				result = true;
-			}
-			else
-				return result;
-
-			leftLeftI--;
+	int Difference(SolutionIntContainer& targetList) {
+		int sum = 0;
+		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+			sum += (*it);
 		}
-
-		return result;
-		//} else return false;
+		return Difference(sum);
 	}
+
+	//int ReducedIncludingIndexDifference(SolutionIntContainer& list, ReverseIterator rightIndex) {
+	//	int sum = 0;
+	//	for (int i = 0; i <= rightIndex; i++) {
+	//		sum += list[i];
+	//	}
+	//	int reductionOffset = 0;
+	//	for (int i = (rightIndex+1); i < list.size(); i++)
+	//	{
+	//		reductionOffset += list[i];
+	//	}
+
+	//	return IncludingIndexDifference(sum, reductionOffset);
+	//}
+
+	int Difference(std::list<int>& targetList) {
+		int sum = 0;
+		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+			sum += (*it);
+		}
+		return Difference(sum);
+	}
+
 	void ShowList(SolutionIntContainer& list, std::string* additionalContents = nullptr, bool reversed = false)
 	{
 #ifdef SHOW_RESULTS
@@ -195,30 +188,147 @@ namespace NewSolution {
 #endif
 	}
 
-	void ShowCombination(SolutionIntContainer& container, std::string* additionalContents, bool reversed) {
+	void ShowCombination(SolutionIntContainer& container, std::string* additionalContents = nullptr, bool reversed = false) {
 #ifdef SHOW_RESULTS
 		std::cout << g_countOfCombinations << ") \t";
 		ShowList(container, additionalContents, reversed);
 #endif
 	}
 
-	bool RightIsGreater(int left, int right, int offset) {
-		if (right > (left + offset))
-			return true;
-		return false;
-	}
 
-	bool RightIsGreaterOrEqual(int left, int right) {
-		if (right >= left)
-			return true;
-		return false;
-	}
+	void SetValue(int index, SolutionIntContainer& list, int value) {
 
-	int TakeValue(SolutionIntContainer& list, int index) {
 		if (index < 0 || index >= list.size())
-			return -1;
-		return list[index];
+			return;
+		list[index] = value;
+	}	
+
+	void Inc(SolutionIntContainer& list, int index, int count = 1) {
+
+		if (index < 0 || index >= list.size())
+			return;
+		list[index] = list[index] + count;
+	}	
+
+	void Dec(SolutionIntContainer& list, int index) {
+		if (index < 0 || index >= list.size())
+			return;
+		list[index] = list[index] - 1;
 	}
+
+	SolutionIntContainer TryInc(SolutionIntContainer& list, int index)
+	{
+		SolutionIntContainer resultingList = SolutionIntContainer(list);
+		Inc(resultingList, index);
+		return resultingList;
+	}
+
+	SolutionIntContainer TryDecAndInc(SolutionIntContainer& list, int reductionIndex, int increasingIndex)
+	{
+		SolutionIntContainer resultingList = SolutionIntContainer(list);
+		Dec(resultingList, reductionIndex);
+		Inc(resultingList, increasingIndex);
+		return resultingList;
+	}
+
+	bool CheckForNewCombination(SolutionIntContainer list, int rightIndex, int leftIndex)
+	{
+		if ((list[rightIndex] - 1) >= list[leftIndex])
+			if ((list[leftIndex] + 1) <= list[rightIndex]) {
+				CombinationFound();
+				ShowCombination(list);
+				return true;
+			}
+		return false;
+	}
+
+	bool RebuildDownstairs(SolutionIntContainer& list, int rightI, int leftI = -1)
+	{
+		if (leftI == -1)
+			leftI = rightI - 1;
+
+		SolutionIntContainer newTryList = TryDecAndInc(list, rightI, leftI);
+
+		if (CheckOrder(newTryList, rightI) > 0)
+			return false;
+
+		CombinationFound();
+
+		list[rightI] = list[rightI] - 1;
+		list[leftI] = list[leftI] + 1;
+
+#ifdef SHOW_RESULTS
+
+		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightI) +
+			+" ; " +
+			std::string("leftIndex = ") + std::to_string(leftI) +
+			std::string(";");
+
+		ShowCombination(list
+			, &indexesStr
+		);
+#endif //SHOW_RESULTS
+
+		return true;
+	}
+
+	void TryNormalize()
+	{
+
+	}
+	
+	void TryGhostGlideEntireArray(SolutionIntContainer list, int rightIndex, int leftLeftI) {
+
+
+
+	}
+
+	bool GlidePossible(SolutionIntContainer& sIC)
+	{
+		int first = sIC[0];
+		int last = sIC[sIC.size() - 1];
+		int offset = 1;
+
+		if (last > (first + offset))
+		{
+			return true;
+		}
+		return false;
+	}
+
+	int startingLeftLeftIndex;
+	void TryGhostGlideALine(SolutionIntContainer& list, int rightIndex, int leftLeftI, int& depthOverall, int currentDepth) 
+	{
+		SolutionIntContainer newTryList = SolutionIntContainer(list);
+
+
+		while (depthOverall == currentDepth) {
+			if (leftLeftI < 0) {
+				leftLeftI = startingLeftLeftIndex;
+			}
+
+			if (!GlidePossible(newTryList))
+				return;
+
+			newTryList = TryDecAndInc(newTryList, rightIndex, leftLeftI);
+			if (CheckOrder(newTryList, rightIndex) <= 0) {
+
+				CombinationFound();
+				ShowCombination(newTryList);
+
+				//CheckForNewCombination(newTryList, rightIndex, leftLeftI);
+				TryGhostGlideALine(newTryList, rightIndex, leftLeftI - 1, ++depthOverall, ++currentDepth);
+				//TryGhostGlideContainer(newTryList, rightIndex - 1, leftLeftI);
+			} else {
+				return;
+			}
+
+			leftLeftI--;
+		}
+
+	//} else return false;
+	}
+
 
 	void ChangeValue(SolutionIntContainer& container, int index, int value) {
 		container[index] = value;
@@ -272,280 +382,179 @@ namespace NewSolution {
 		return false;
 	}
 
-	int rebuildRightIndex = -1;
-	bool RebuildCombination(SolutionIntContainer& targetList, ReverseIterator rightBorder) {
-		// strictly more than 0 because we move towards left border
-		// and check for the previous (right - 1) element
+//	int rebuildRightIndex = -1;
+//	bool RebuildCombination(SolutionIntContainer& targetList, ReverseIterator rightBorder) {
+//		// strictly more than 0 because we move towards left border
+//		// and check for the previous (right - 1) element
+//
+//		int rightI = targetList.size() - 1;
+//		int leftI = 0;
+//
+//		//if (g_countOfCombinations == 44)
+//		//	std::string();
+//
+//		int indOffset = 1;
+//		int valOffset = 1;
+//
+//		if (!RightIsGreater(targetList[leftI], targetList[rightI], valOffset/*1*/))
+//			return RebuildOnce(targetList, rightI, targetList[rightI]);
+//
+//		//while (leftI < (rightI- indOffset)) {
+//		//	if (!RightIsGreater(targetList[leftI], targetList[rightI-1], valOffset/*1*/))
+//		//		break;
+//		//	else
+//		//		rightI--;
+//		//}
+//
+//		while ((leftI + indOffset) < rightI) {
+//			if (!RightIsGreater(targetList[leftI + 1], targetList[rightI], valOffset/*1*/))
+//				break;
+//			else
+//				leftI++;
+//		}
+//
+//		CombinationFound();
+//
+//#ifdef SHOW_RESULTS
+//		targetList[rightI] = targetList[rightI] - 1;
+//		targetList[leftI] = targetList[leftI] + 1;
+//
+//		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightI) +
+//			+" ; " +
+//			std::string("leftIndex = ") + std::to_string(leftI) +
+//			std::string(";");
+//
+//		ShowCombination(targetList
+//			, &indexesStr
+//		);
+//#endif //SHOW_RESULTS
+//
+//		return true;
+//	}
 
-		int rightI = targetList.size() - 1;
-		int leftI = 0;
-
-		//if (g_countOfCombinations == 44)
-		//	std::string();
-
-		int indOffset = 1;
-		int valOffset = 1;
-
-		//if (!RightIsGreater(targetList[leftI], targetList[rightI], valOffset/*1*/)) {
-			return NewSolution::TryGhostGlideContainer(SolutionIntContainer(targetList), rightBorder);
-			//return false;
-		//}
-			//return RebuildOnce(targetList, rightI, targetList[rightI]);
-
-		while (leftI < (rightI- indOffset)) {
-			if (!RightIsGreater(targetList[leftI], targetList[rightI-1], valOffset/*1*/))
-				break;
-			else
-				rightI--;
-		}
-
-		while ((leftI + indOffset) < rightI) {
-			if (!RightIsGreater(targetList[leftI + 1], targetList[rightI], valOffset/*1*/))
-				break;
-			else
-				leftI++;
-		}
-
-		CombinationFound();
-
-#ifdef SHOW_RESULTS
-		targetList[rightI] = targetList[rightI] - 1;
-		targetList[leftI] = targetList[leftI] + 1;
-
-		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightI) +
-			+" ; " +
-			std::string("leftIndex = ") + std::to_string(leftI) +
-			std::string(";");
-
-		ShowCombination(targetList
-			, &indexesStr
-		);
-#endif //SHOW_RESULTS
-
-		return true;
-	}
-
-	//Tested OK 10:47 PM 5/23/2019
-	bool CheckOrder(SolutionIntContainer& list) {
-		// TODO: optimize 
-		for (int left = 0, right = 1; right < list.size(); left++, right++) {
-			if (!RightIsGreaterOrEqual(list[left], list[right]))
-				return false;
-		}
-		return true;
-	}
 
 	//bool DecreaseByLeftLeft(int leftLeft, int &left)
 	//{
 	//	if()
 	//}
 
-	bool RebuildRightOnce(SolutionIntContainer list, int constRight)
+	bool CanDecRightAndIncLeft(SolutionIntContainer& list, int rightI, int leftI) {
+		return CheckOrder(TryDecAndInc(list, rightI, leftI), rightI) <= 0;
+	}
+
+	bool CanFurtherGlide(SolutionIntContainer& list, int index)
 	{
+		//
+		throw 0xDEADBEEF;
+	}
+
+	bool FindNext(SolutionIntContainer& list, int rightI)
+	{
+		bool result = true;
+
 		// working with previous
 		// Find the left Element
 		// Check if left element is to the left of right
-		int leftI = constRight - 1;
+		int leftI = rightI - 1;
 
 		// exit if can't shift
 		// (exit if left doesn't exist)
 		if (leftI < 0)
 			return false;
 
-		// Check if increasing the number won't destroy the order
-		SolutionIntContainer newSIC;
-		newSIC = SolutionIntContainer(list);
-		newSIC[leftI] = newSIC[leftI] + 1;
-		if (CheckOrder(newSIC))
-		{
-			//	Increase Element
-			//	list[leftI] = list[leftI] + 1;
-			CombinationFound();
+		//if (CheckOrder(list, rightI) > 0)
+		//	return false;
 
-#ifdef SHOW_RESULTS
-			std::string indexesStr = std::string("rightIndex = ") + std::to_string(constRight) +
-				+" ; " +
-				std::string("leftIndex = ") + std::to_string(leftI) +
-				std::string(";");
 
-			ShowCombination(list
-				, &indexesStr
-			);
-#endif //SHOW_RESULTS 
-			return true;
-		}
-		return false;
-	}
-
-	bool RebuildRightOnce2(SolutionIntContainer list, int constRight)
-	{
-		// working with previous
-		// Find the left Element
-		// Check if left element is to the left of right
-		int leftI = constRight - 1;
-
-		// exit if can't shift
-		// (exit if left doesn't exist)
-		if (leftI < 0)
+		// TODO: exit condition
+		if (!RebuildDownstairs(list, rightI))
+			//result = false;
 			return false;
 
-		// Check if increasing the number won't destroy the order
-		SolutionIntContainer newSIC;
-		newSIC = SolutionIntContainer(list);
-		newSIC[leftI] = newSIC[leftI] + 1;
-		if (CheckOrder(newSIC))
-		{
-			//	Increase Element
-			//	list[leftI] = list[leftI] + 1;
-			CombinationFound();
+		//if (CheckOrder(list, rightI) > 0)
+		//	return false;
 
-#ifdef SHOW_RESULTS
-			std::string indexesStr = std::string("rightIndex = ") + std::to_string(constRight) +
-				+" ; " +
-				std::string("leftIndex = ") + std::to_string(leftI) +
-				std::string(";");
+		// a third element we are currently working on 
+		// it is to the third position to the left 
+		// and more if needed 
+		int leftLeftI = leftI - 1;
+		if (leftLeftI >= 0) {
+			//for (int i = 0; i < list[leftI]; i++)
+			//{
+			//	SolutionIntContainer sIC;
 
-			ShowCombination(list
-				, &indexesStr
-			);
-#endif //SHOW_RESULTS 
-			return true;
+				startingLeftLeftIndex = leftLeftI;
+
+				int depth = 0;
+				TryGhostGlideALine(list, rightI, leftLeftI, depth, depth);
+			//}
 		}
-		return false;
-	}
-
-	bool SmoothOut(SolutionIntContainer& list) {
-		//Smoothing Out the list 
-		//(creating smooth borders)
-		int rightI = (list.size() - 1);
-		int leftI = (rightI - 1);
-		for (;
-			rightI > 0
-			//, leftI >= 0
-			;
-			rightI--
-			//, leftI--
-			) {
-			if (list[rightI] > list[leftI])
-				;
-		}
-
-		return false;
-	}
-
-	bool RebuildCombination2(SolutionIntContainer& targetList/*, ReverseIterator rightIndex,*/) {
-
-		int rightIndex = targetList.size() - 1;
-		int leftIndex = 0;
-
-		//if (g_countOfCombinations == 44)
-		//	std::string();
-
-		int indexDifference = 1;
-		int valueDifference = 1;
-
-		if (!RightIsGreater(targetList[leftIndex], targetList[rightIndex], valueDifference/*1*/))
-			return false;
-
-		while (leftIndex < (rightIndex - indexDifference)) {
-			if (!RightIsGreater(targetList[leftIndex], targetList[rightIndex - 1], valueDifference/*1*/))
-				break;
-			else
-				rightIndex--;
-		}
-
-
-		CombinationFound();
-
-		targetList[rightIndex] = targetList[rightIndex] - 1;
-		targetList[leftIndex] = targetList[leftIndex] + 1;
-
-#ifdef SHOW_RESULTS
-		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
-			+" ; " +
-			std::string("leftIndex = ") + std::to_string(leftIndex) +
-			std::string(";");
-
-		ShowCombination(targetList
-			, &indexesStr
-		);
-#endif //SHOW_RESULTS 
-
-		return true;
-	}
-
-	bool RebuildNext(SolutionIntContainer& targetList, int rightIndex) {
-
-		int leftIndex = rightIndex - 1;
-
-		targetList[leftIndex] = targetList[leftIndex - 1];
-
-		for (int nextLeft = (leftIndex - 1); nextLeft >= 0; nextLeft--) {
-
-		}
-
-		return false;
-	}
-
-	bool RebuildCombination3(SolutionIntContainer& targetList/*, ReverseIterator rightIndex*/) {
-
-		int rightIndex = targetList.size() - 1;
-		int leftIndex = rightIndex - 1;
-
-		if ((leftIndex - 1) < 0)
-		{
-			return false;
-		}
-
-		targetList[leftIndex] = targetList[leftIndex - 1];
-
-		for (int nextLeft = leftIndex - 1; nextLeft >= 0; nextLeft--) {
-			targetList[nextLeft] = targetList[nextLeft] + 1;
-
-		}
-		int indexDifference = 0;
-		int valueDifference = 1;
-
-		if (!RightIsGreater(targetList[leftIndex], targetList[rightIndex], valueDifference/*1*/))
-			return false;
-
-		while ((leftIndex + indexDifference) < rightIndex) {
-			if (!RightIsGreater(targetList[leftIndex + 1], targetList[rightIndex], valueDifference/*1*/))
-				break;
-			else
-				leftIndex++;
-		}
-
-		//while (leftIndex < (rightIndex - indexDifference)) {
-		//	if (!SufficientValueDifference(targetList[leftIndex], targetList[rightIndex - 1], valueDifference/*1*/))
-		//		break;
-		//	else
-		//		rightIndex--;
+		
+		//// try increase left
+		//if (CanDecRightAndIncLeft(list, rightI, leftI))
+		//{
+		//	Inc(list, leftI);
+		//	Dec(list, rightI);
+		//	CombinationFound();
+		//	ShowCombination(list);
+		//	return true;
+		//}
+		//else {
+		//	return false;
 		//}
 
-		CombinationFound();
+		// Ghost Glide OK, continue
+		return result;
+	}
 
-#ifdef SHOW_RESULTS
-		targetList[rightIndex] = targetList[rightIndex] + 1;
-		targetList[leftIndex] = targetList[leftIndex] - 1;
+	// Rebuild saving existing right element
+	bool RebuildCombination(SolutionIntContainer& list, ReverseIterator rightIndex)
+	{
+		if (rightIndex <= 0)
+			return false;
+		// strictly more than 0 because we move towards left border
+		// and check for the previous (right - 1) element
 
-		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
-			+" ; " +
-			std::string("leftIndex = ") + std::to_string(leftIndex) +
-			std::string(";");
+		//int rightI = list.size() - 1;
+		//int leftI = 0;
 
-		ShowCombination(targetList
-			, &indexesStr
-		);
-#endif //SHOW_RESULTS
+		//int indOffset = 1;
+		//int valOffset = 1;
+
+		//if (!RightIsGreater(list[leftI], list[rightI], valOffset/*1*/)) {
+		////return NewSolution::TryGhostGlideContainer(SolutionIntContainer(targetList), rightBorder);
+		////return false;
+		//	return 
+		//}
+
+		int orderDisplacement = CheckOrder(list, rightIndex);
+
+		if (orderDisplacement < 0)
+			Inc(list, rightIndex);
+		if (orderDisplacement > 0)
+			return false;
+
+		int leftI = rightIndex -1;
+
+		//if (list[leftI] + 1 > list[rightIndex])
+		//	return false;
+			//return RebuildOnce(list, rightIndex, list[rightIndex]);
+
+		// Find the changed
+		while ( FindNext(list, rightIndex) ) {
+			// RebuildDownstairs(list, rightIndex);
+			// Inc(list, leftI);
+		}
+
+		//while (leftI < (rightI- indOffset)) {
+		//	if (!RightIsGreater(targetList[leftI], targetList[rightI-1], valOffset/*1*/))
+		//		break;
+		//	else
+		//		rightI--;
+		//}
 
 		return true;
 	}
-
-	//bool RebuildCombinaton4(SolutionIntContainer& targetList/*, ReverseIterator rightIndex*/)
-	//{
-
-	//}
 
 	bool SearchForNew(SolutionIntContainer& targetList/*, ReverseIterator rightIndex,*/) {
 		// strictly more than 0 because we move towards left border
@@ -578,27 +587,6 @@ namespace NewSolution {
 		return true;
 	}
 
-	int Difference(int sum)
-	{
-		return g_targetNumber - sum;
-	}
-
-	int Difference(SolutionIntContainer& targetList) {
-		int sum = 0;
-		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
-			sum += (*it);
-		}
-		return Difference(sum);
-	}
-
-	int Difference(std::list<int>& targetList) {
-		int sum = 0;
-		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
-			sum += (*it);
-		}
-		return Difference(sum);
-	}
-
 	void InitializeCombinations()
 	{
 		for (int i = g_targetNumber; i > 1; i--)
@@ -628,9 +616,9 @@ namespace NewSolution {
 		}
 	}
 
-	void FindAllSumsFixedLength(SolutionIntContainer targetList/*, ReverseIterator iterator, int reducedNumber, bool firstRun = false*/) {
-
-		int rightIndex = /*firstRun ?*/ targetList.size() - 1 /*: iterator - 1*/ ;
+	void FindAllSumsFixedLength(SolutionIntContainer targetList/*, ReverseIterator iterator, int reducedNumber, bool firstRun = false*/) 
+	{
+		int rightIndex = /*firstRun ?*/ targetList.size() - 1 /*: iterator - 1*/;
 
 		int left = (rightIndex - 1);
 
@@ -652,10 +640,10 @@ namespace NewSolution {
 		while (
 			//razmazano =
 			//NewSolution::RebuildOnce(targetList, rightIndex, targetList[rightIndex])
-			NewSolution::RebuildCombination(targetList, rightIndex--)
+			NewSolution::RebuildCombination(targetList, rightIndex)
 			)
 		{
-			//NewSolution::TryGhostGlideContainer( SolutionIntContainer(targetList), rebuildRightIndex );
+			--rightIndex;
 		}
 	}
 } // New Solution //
@@ -680,7 +668,8 @@ namespace CombinationsFinder {
 			if (CombinationsFinder::showResults) {
 				NewSolution::SolutionIntContainer container(arr, arr+index);
 				
-				NewSolution::ShowCombination(container, nullptr, true);
+				NewSolution::ShowCombination(container, nullptr//, true
+					);
 
 				//for (int i = 0; i < index; i++)
 				//	std::cout << arr[i] << " ";
@@ -819,7 +808,7 @@ void TestOrder()
 {
 	NewSolution::SolutionIntContainer list;
 	list.push_back(1); list.push_back(1); list.push_back(2);
-	if (NewSolution::CheckOrder(list))
+	if (NewSolution::CheckOrder(list, list.size()-1))
 		std::cout << "true";
 	else 
 		std::cout << "false";
@@ -827,8 +816,6 @@ void TestOrder()
 }
 
 void CountCombinations() {
-	
-
 
 	int** storage = new int*[g_targetNumber];
 
@@ -836,8 +823,6 @@ void CountCombinations() {
 	{
 		storage[i] = new int[g_targetNumber];
 	}
-
-
 
 }
 
@@ -880,11 +865,13 @@ void RunNewSolution(bool showResults = false) {
 			NewSolution::ShowCombination((*i));
 			continue;
 		}
+
 		NewSolution::FindAllSumsFixedLength(
 			*i//, 
 			//i->size()-1, /*g_targetNumber, */
 			//true
 		);
+
 		//sort(i->begin(), i->end());
 		//i->erase(unique(i->begin(), i->end()), i->end());
 		//countOfCombinations += i->size();
@@ -912,7 +899,7 @@ void RunNewSolutionSingleThreaded(bool showResults = false)
 
 int main()
 {
-	g_targetNumber = 14;
+	g_targetNumber = 9;
 	//std::cout << "C = " << Soch() << std::endl;
 
 	//Test();
