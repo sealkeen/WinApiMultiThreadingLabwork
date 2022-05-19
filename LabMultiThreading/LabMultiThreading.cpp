@@ -6,9 +6,7 @@
 #include <Windows.h>
 #include <chrono>
 #include <queue>
-#include <list>
 
-typedef std::vector<int> SolutionIntContainer;
 typedef int ReverseIterator;
 
 //#define SHOW_RESULTS
@@ -25,6 +23,354 @@ int g_threadCount;
 int g_countOfCombinations = 0;
 int g_targetNumber = 0;
 std::string g_millisecondsSpentOutputStr;
+
+namespace Set {
+	class ContainerSet {
+	public:
+		bool _empty;
+		int _size;
+		int* _collection;
+		int _lastIndex;
+		ContainerSet* next;
+		ContainerSet()
+		{
+			_lastIndex = 0;
+			_size = 0;
+			_collection = nullptr;
+			_empty = true;
+		}
+
+		ContainerSet(const ContainerSet& source)
+		{
+			Initialize(source);
+		}
+
+		void Initialize(const ContainerSet& source)
+		{
+			_lastIndex = 0;
+			_size = source._size;
+			_collection = new int[_size];
+
+			for (int i = 0; i < _size; i++) {
+				_collection[i] = source[i];
+			}
+			_empty = false;
+		}
+
+		ContainerSet(int size) 
+		{
+			_lastIndex = 0;
+			_collection = new int[size];
+			_size = size;
+			_empty = false;
+		}
+		
+		~ContainerSet() 
+		{
+			if (_empty == true)
+				return;
+			else {
+				if (_collection) {
+					delete _collection;
+					_collection = nullptr;
+					_empty = true;
+				}
+			}
+		}
+
+		int operator[] (int i) const {
+			if (_collection == nullptr)
+				return -1;
+			return _collection[i];
+		}
+
+		int& operator[](int i) {
+			if (_collection == nullptr)
+				return _collection[0];
+			return _collection[i];
+		}
+
+		bool operator<(const ContainerSet& left) 
+		{
+			return left._collection < this->_collection;
+		}
+
+		int size() { if (this == nullptr) return 0; return _size; }
+
+		bool Equal(ContainerSet* set) {
+			if (_collection == nullptr || _size < 0 )
+				return false;
+			
+			for (int i = 0; i < set->size(); i++)
+			{
+				if (set->_collection[i] != this->_collection[i])
+					return false;
+			}
+			if(set->size() == this->size())
+				return true;
+			return false;
+		}
+
+		int* rbegin() { return &_collection[_size - 1]; }
+		int* rend() { return &_collection[0]; }
+		int* begin() { return &_collection[0]; }
+		int* end() { return &_collection[_size - 1]; }
+	};
+
+
+	class DynamicListOfSets {
+		public:
+			bool _empty;
+			ContainerSet* _last;
+			ContainerSet* _first;
+			DynamicListOfSets()
+			{
+				Initialize(this);
+			}
+			static void Initialize(DynamicListOfSets* list) {
+
+				list->_first = nullptr;
+				list->_last = nullptr;
+			}
+			ContainerSet* back() {
+				return _last;
+			}
+			bool HasEqualMember(ContainerSet* member)
+			{
+				if (_first == nullptr)
+				{
+					return false;
+				}
+				ContainerSet* current = _first;
+				do {
+					//do stuff
+					if (current->Equal(member))
+						return true;
+
+					current = current->next;
+				} while (current->next != nullptr);
+				return false;
+			}
+
+			ContainerSet* front() 
+			{
+				return _first;
+			}
+			void push_back(ContainerSet* set)
+			{
+				if (set == nullptr)
+					return;
+
+				set->next = nullptr;
+				if (_last == nullptr) {
+					_first = set; _last = set;
+				} else {
+					_last->next = set;
+					_last = set;
+				}
+				_empty = false;
+			}
+
+			void clear() {
+				ContainerSet* current = _first;
+				if (current == nullptr) {
+					_empty = true;
+					return;
+				}
+				ContainerSet* next = current->next;
+
+				do {
+					//extract next from current
+					next = current->next;
+					//delete current
+					delete current;
+					//move next 
+					current = next;
+					//if next exist
+				} while (next != nullptr);
+
+				_empty = true;
+			}
+			void pop_front() {
+				if (_first != nullptr)
+				{
+					auto next = _first->next;
+					delete _first;
+					if (next != nullptr)
+						_first = next;
+				}
+			}
+			~DynamicListOfSets()
+			{
+				_empty = true;
+				EnterCriticalSection(&cs);
+				//std::cout << "Destroyed" << std::endl;
+				LeaveCriticalSection(&cs);
+			}
+	};
+
+	class ListOfSets {
+	public:
+		//data fields
+		ContainerSet** _collection;
+		int _size;
+		int _pointer;
+
+		ContainerSet* operator[] (int i) const {
+			if (_collection == nullptr)
+				return nullptr;
+			return _collection[i];
+		}
+
+		//ContainerSet& operator[](int i) {
+		//	if (_collection == nullptr)
+		//		return *_collection[0];
+		//	return *_collection[i];
+		//}
+
+		//constructors
+		ListOfSets()
+		{
+			_size = 0;
+			_collection = nullptr;
+			_pointer = -1;
+		}
+
+		ListOfSets(int size)
+		{
+			Initialize(this, size);
+		}
+
+		static void Initialize(ListOfSets* list, int size)
+		{
+			list->_size = size;
+			list->_collection = new ContainerSet*[size];
+			for (int i = 0; i < size; i++)
+			{
+				list->_collection[i] = new ContainerSet(size);
+			}
+			list->_pointer = -1;
+		}
+
+		//methods
+		int size()
+		{
+			return _size;
+		}
+
+		void push_back(ContainerSet* list)
+		{
+			if (!IsFull())
+			{
+				if (list == nullptr)
+				{
+					//TODO: check and correct here
+					throw 0;
+					return;
+				}
+				_pointer++;
+				_collection[_pointer] = list;
+			}
+		}
+
+		ContainerSet* next(int index)
+		{
+			if ( (index+1) >= _size)
+				return nullptr;
+			return _collection[index + 1];
+		}
+
+		ContainerSet* front()
+		{
+			if(_collection != nullptr)
+				return _collection[0];
+			return nullptr;
+		}
+
+		ContainerSet* pop_back()
+		{
+			if (!HasValues())
+				return nullptr;
+			else {
+				if(_pointer-1 >= 0)
+					return _collection[_pointer--];
+				return false;
+			}
+		}
+
+		ContainerSet* pop_front()
+		{
+			if (!HasValues())
+				return nullptr;
+			else {
+				if (_pointer >= 0)
+					return _collection[0];
+				return false;
+			}
+		}
+
+		bool IsFull()
+		{
+			return (_pointer + 1) >= _size;
+		}
+		bool HasValues()
+		{
+			if (_collection == nullptr || _size <= 0)
+				return false;
+			return true;
+		}
+
+		ContainerSet* rbegin()
+		{
+			if (_collection == nullptr || _collection[_size - 1] == nullptr) 
+				return nullptr;
+			return _collection[_size - 1];
+		}
+		ContainerSet* rend()
+		{
+			if (_collection == nullptr || _collection[0] == nullptr)
+				return nullptr;
+			return _collection[0];
+		}
+		ContainerSet* begin()
+		{
+			if (_collection == nullptr || _collection[0] == nullptr)
+				return nullptr;
+			return _collection[0];
+		}
+		ContainerSet* end()
+		{
+			if (_collection == nullptr || _collection[_size - 1] == nullptr)
+				return nullptr;
+			return _collection[_size - 1];
+		}
+
+		void clear()
+		{
+			if (_collection == nullptr)
+				return;
+			if (_collection[0]) {
+				for (int cSI = 0; cSI < _size; cSI++)
+				{
+					if (_collection[cSI] != nullptr)
+					{
+						delete _collection[cSI];
+						_collection[cSI] = new Set::ContainerSet();
+					}
+				}
+			}
+			ListOfSets();
+		}
+
+		~ListOfSets() {
+			clear();
+		}
+	};
+}
+
+typedef Set::ContainerSet SolutionIntContainer;
+
+//typedef std::vector<int> SolutionIntContainer;
 
 namespace SimpleTimer {
 	class SimpleTimer
@@ -78,8 +424,6 @@ namespace SimpleTimer {
 	};
 }
 
-
-// TODO: clean
 namespace NewSolution {
 
 	bool Equal(SolutionIntContainer* left, SolutionIntContainer* right) {
@@ -100,7 +444,7 @@ namespace NewSolution {
 
 	int Difference(SolutionIntContainer& targetList) {
 		int sum = 0;
-		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
+		for (auto it = targetList.rbegin(); it >= targetList.rend(); it--) {
 			sum += (*it);
 		}
 		return Difference(sum);
@@ -108,32 +452,36 @@ namespace NewSolution {
 
 	class CombinationStorage {
 	private:
-		std::list<SolutionIntContainer> descendants;
+		Set::DynamicListOfSets descendants;
 	public:
 		// constructors 
-		CombinationStorage() {
-			descendants = std::list<SolutionIntContainer>();
+		CombinationStorage(int size) {
+			Set::DynamicListOfSets::Initialize(&descendants);
 		}
 
 		// methods
 		void DeleteDescendants() {
-			descendants.clear();
+			//descendants.clear();
 		}
 
 		bool FindDescendant(SolutionIntContainer* sIC) {
-			for (SolutionIntContainer ghost : descendants) {
-				if (Equal(&ghost, sIC))
+
+			auto it = descendants.front();
+			while (it != nullptr) {
+				if (Equal(it, sIC))
 					return true;
-			}
+				it = it->next;
+			} 
+				
 			return false;
 		}
 		void AddDescendant(SolutionIntContainer* combinationNode) {
 			if (combinationNode != nullptr)
-				descendants.push_back(SolutionIntContainer(*combinationNode));
+				descendants.push_back(new SolutionIntContainer(*combinationNode));
 		}
 
 		SolutionIntContainer* GetNextDescendant() {
-			return &descendants.front();
+			return descendants.front();
 		}
 		void DeleteFrontDescendant() {
 			descendants.pop_front();
@@ -147,12 +495,12 @@ namespace NewSolution {
 		SolutionIntContainer sourceList;
 	public:
 		// public fields:
-		static std::list<SolutionIntContainer> startingCombinations;
+		static Set::ListOfSets startingCombinations;
 
 		//constructor:
-		ListHandler(SolutionIntContainer& s)
+		ListHandler(SolutionIntContainer* s, int size) : combinationStorage(size)
 		{
-			sourceList = SolutionIntContainer(s);
+			sourceList.Initialize(*s);
 			//InitializeCombinations();
 		}
 
@@ -216,25 +564,19 @@ namespace NewSolution {
 			return IncludingIndexDifference(sum, reductionOffset);
 		}
 
-		int Difference(std::list<int>& targetList) {
-			int sum = 0;
-			for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
-				sum += (*it);
-			}
-			return NewSolution::Difference(sum);
-		}
-
 		static void ShowList(SolutionIntContainer& list, std::string* additionalContents = nullptr, bool reversed = false)
 		{
 #ifdef SHOW_RESULTS
 			if (reversed) {
-				for (auto i = list.rbegin(); i != list.rend(); i++)
+				for (auto i = list.rbegin(); i >= list.rend(); i--)
 				{
 					std::cout << (*i) << " ";
 				}
 			}
 			else {
-				for (auto i = list.begin(); i != list.end(); i++) {
+				for (auto i = list.begin(); 
+					i <= list.end(); 
+					i++) {
 					std::cout << (*i) << " ";
 				}
 			}
@@ -272,31 +614,27 @@ namespace NewSolution {
 			return resultingList;
 		}
 
-		SolutionIntContainer TryDecAndInc(SolutionIntContainer& list, int reductionIndex, int increasingIndex)
+		void TryDecAndInc(SolutionIntContainer& newList, SolutionIntContainer& oldList, int reductionIndex, int increasingIndex)
 		{
-			SolutionIntContainer resultingList = SolutionIntContainer(list);
-			Dec(resultingList, reductionIndex);
-			Inc(resultingList, increasingIndex);
-			return resultingList;
+			newList.Initialize(oldList);
+			Dec(newList, reductionIndex);
+			Inc(newList, increasingIndex);
+		}		
+		
+		SolutionIntContainer& TryDecAndInc(SolutionIntContainer& const newList, int reductionIndex, int increasingIndex)
+		{
+			Dec(newList, reductionIndex);
+			Inc(newList, increasingIndex);
+			return newList;
 		}
-
-		//bool CheckForNewCombination(SolutionIntContainer list, int rightIndex, int leftIndex)
-		//{
-		//	if ((list[rightIndex] - 1) >= list[leftIndex])
-		//		if ((list[leftIndex] + 1) <= list[rightIndex]) {
-		//			GhostFound(&list);
-		//			ShowCombination(list);
-		//			return true;
-		//		}
-		//	return false;
-		//}
 
 		bool RebuildDownstairs(SolutionIntContainer& list, int rightI, int leftI = -1)
 		{
 			if (leftI == -1)
 				leftI = rightI - 1;
 
-			SolutionIntContainer newTryList = TryDecAndInc(list, rightI, leftI);
+			SolutionIntContainer newTryList;
+			TryDecAndInc(newTryList, list, rightI, leftI);
 
 			if (CheckOrder(newTryList, rightI) > 0)
 				return false;
@@ -347,7 +685,7 @@ namespace NewSolution {
 		void TryGhostGlideALine(SolutionIntContainer& list, int rightIndex, int leftLeftI,
 			int& depthOverall, int currentDepth)
 		{
-			SolutionIntContainer newTryList = SolutionIntContainer(list);
+			SolutionIntContainer newTryList(list);
 
 			while (depthOverall == currentDepth) //(true)
 			{
@@ -357,19 +695,13 @@ namespace NewSolution {
 
 				if (!GlidePossible(newTryList))
 					return;
-				newTryList = TryDecAndInc(newTryList, rightIndex, leftLeftI);
+				TryDecAndInc(newTryList, rightIndex, leftLeftI);
 
 				if (CheckOrder(newTryList, rightIndex) <= 0) {
 					if (
 						!combinationStorage.FindDescendant(&newTryList)
-						//&&
-						//true
-						//!Exists(newTryList, newTryList[rightIndex], newTryList[leftLeftI])
 						) {
-						//NewGhostFound(&list);
-						//TODO: erase 2 / restore 1 || erase 1 / restore 2
 						NewDescendantFound(&newTryList);
-						//g_countOfCombinations++;
 
 						//if(newTryList[rightIndex] < lastRight)
 							lastRight = newTryList[rightIndex];
@@ -379,29 +711,18 @@ namespace NewSolution {
 						ShowCombination(newTryList);
 					}
 
-					//CheckForNewCombination(newTryList, rightIndex, leftLeftI);
-
 					TryGhostGlideALine(newTryList, rightIndex, leftLeftI, ++depthOverall, ++currentDepth);
-					//--depthOverall;
 
 					// Repeat recursively
-					//if (  (leftLeftI >= 1) 
-					//	 && (maxLeftPosition <= leftLeftI) 
-					//)
 					TryGhostGlideALine(newTryList, rightIndex, (leftLeftI - 1),
 						(depthOverall = currentDepth),
 						/*++*/currentDepth
 					);
-					//else
-					//	return;
 				} else {
-					//glode = true; //TODO: check if needed
 					return;
 				}
 				leftLeftI--;
 			}
-			//} else return false;
-				//glode = true; //TODO: check if needed
 		}
 
 		void ChangeValue(SolutionIntContainer& container, int index, int value) {
@@ -428,7 +749,6 @@ namespace NewSolution {
 
 			// TODO: exit condition
 			if (!RebuildDownstairs(list, rightI))
-				//result = false;
 				return false;
 
 			// a third element we are currently working on 
@@ -437,9 +757,6 @@ namespace NewSolution {
 			int leftLeftI = (leftI - 1);
 			if (leftLeftI >= 0)
 			{
-				//for (int i = 0; i < list[leftI]; i++)
-				//{
-				//	SolutionIntContainer sIC;
 				startingLeftLeftIndex = leftLeftI;
 				int depth = 0;
 
@@ -449,7 +766,6 @@ namespace NewSolution {
 				combinationStorage.DeleteDescendants();
 				TryGhostGlideALine(list, rightI, leftLeftI, depth, depth//, 0
 				);
-				//}
 			}
 
 			// Ghost Glide OK, continue
@@ -481,13 +797,14 @@ namespace NewSolution {
 			return true;
 		}
 
-		static void InitializeCombinations()
+		static void InitializeCombinations( int count )
 		{
-			for (int i = g_targetNumber; i > 1; i--)
+			Set::ListOfSets::Initialize(&startingCombinations, count-1);
+			for (int i = count; i > 1; i--)
 			{
-				SolutionIntContainer newList = SolutionIntContainer();
+				SolutionIntContainer* newList = new SolutionIntContainer(i);
 				for (int k = 0; k < i; k++) {
-					newList.push_back(1);
+					(*newList)[k] = 1;
 				}
 
 				startingCombinations.push_back(newList);
@@ -495,20 +812,18 @@ namespace NewSolution {
 		}
 
 		//Debug
-		void ShowLists()
-		{
-			for (auto it1 = startingCombinations.begin(); it1 != startingCombinations.end(); it1++) {
-				for (auto it2 = it1->begin(); it2 != it1->end(); it2++) {
-					std::cout << (*it2) << " ";
-				}
-				std::cout << std::endl;
-			}
-		}
+		//void ShowLists()
+		//{
+		//	for (auto it1 = startingCombinations.begin(); it1 <= startingCombinations.end(); it1++) {
+		//		for (auto it2 = it1->begin(); it2 <= it1->end(); it2++) {
+		//			std::cout << (*it2) << " ";
+		//		}
+		//		std::cout << std::endl;
+		//	}
+		//}
 
 		void FindAllSumsFixedLength()
 		{ 
-			//std::cout << "Entered Instance Method FindAllSumsFixedLength" << std::endl;
-			
 			ShowList(sourceList);
 			int rightIndex = /*firstRun ?*/ sourceList.size() - 1 /*: iterator - 1*/;
 			int left = (rightIndex - 1);
@@ -527,18 +842,18 @@ namespace NewSolution {
 			{
 				--rightIndex;
 			}
-			//std::cout << "Quiting Instance Method FindAllSumsFixedLength" << std::endl;
 		}
 
 		static SolutionIntContainer Next()
 		{
 			EnterCriticalSection(&::cs);
 			if (startingCombinations.size() == 0)
-				return SolutionIntContainer();
-			SolutionIntContainer sourceList = SolutionIntContainer(startingCombinations.front());
-			startingCombinations.pop_front();
+				return SolutionIntContainer(0);
+
+			SolutionIntContainer* sourceList = startingCombinations.pop_front();
+
 			LeaveCriticalSection(&::cs);
-			return sourceList;
+			return *sourceList;
 		}
 
 		static void WriteLineThreadBlocking(const char* line, int length = 0)
@@ -548,7 +863,7 @@ namespace NewSolution {
 			LeaveCriticalSection(&::cs);
 		}
 
-		static DWORD WINAPI FindAllSumsFixedLengthMT2(LPVOID pListHandler)
+		static DWORD WINAPI FindAllSumsFixedLengthMT(LPVOID pListHandler)
 		{
 			//WriteLineThreadBlocking("Entered thread");
 			ListHandler* pLH = (ListHandler*)pListHandler;
@@ -566,23 +881,14 @@ namespace NewSolution {
 			int left = 0;
 			int difference = g_targetNumber;
 
-			//std::string strSucceded = std::string();
-			//strSucceded.append("Thread ");
-			//strSucceded.append(std::to_string(GetCurrentThreadId()));
-			//strSucceded.append(": wait succeeded\n");
-
 			switch (dwWaitResult)
 			{
 				// The semaphore object was signaled.
 			case WAIT_OBJECT_0:
 				//// TODO: Perform task
-				//WriteLineThreadBlocking(strSucceded.c_str());
 				bContinue = FALSE;
 
-				//WriteLineThreadBlocking("Entered Task");
-				//std::cout << "Entered Task" << std::endl;
-
-				ShowList(pLH->sourceList);
+				//ShowList(pLH->sourceList);
 				rightIndex = /*firstRun ?*/ pLH->sourceList.size() - 1 /*: iterator - 1*/;
 				left = (rightIndex - 1);
 				
@@ -624,53 +930,10 @@ namespace NewSolution {
 			return TRUE;
 		}
 
-		//TODO: Debug and figure out what's wrong here
-		static DWORD WINAPI FindAllSumsFixedLengthMT(LPVOID lpParam)
-		{
-			//std::cout << "Entered FindAllSumsFixedLengthMT" << std::endl;
-			// lpParam not used in this example
-			UNREFERENCED_PARAMETER(lpParam);
-
-			DWORD dwWaitResult;
-			BOOL bContinue = TRUE;
-
-			//std::cout << "Count of combinations : " << startingCombinations.size() << std::endl;
-			//while there are combinations unanalyzed
-			while (startingCombinations.size() > 0)
-			{
-				//std::cout << "Waiting for single object" << std::endl;
-				// Try to enter the semaphore gate.
-				dwWaitResult = WaitForSingleObject(
-					::sem,				// handle to semaphore
-					INFINITE);			// infinite time-out interval
-
-				SolutionIntContainer next = Next();
-				if (next.size() == 0)
-					return 1;
-				ListHandler lH(next);
-
-				switch (dwWaitResult)
-				{
-					// The semaphore object was signaled.
-				case WAIT_OBJECT_0:
-					
-					// Perform task
-					lH.FindAllSumsFixedLength();
-					// TODO: check where we kill ghosts
-					lH.DeleteInnerDescendants();
-
-					// The semaphore was nonsignaled, so a time-out occurred.
-				case WAIT_TIMEOUT:
-					//printf("Thread %d: wait timed out\n", GetCurrentThreadId());
-					break;
-				}
-			}
-			//std::cout << "Quiting FindAllSumsFixedLengthMT..." << std::endl;
-			return TRUE;
-		}
 	}; // CombinationListHandler
 } // New Solution //
 
+Set::ListOfSets NewSolution::ListHandler::startingCombinations;
 
 bool InitializeStreams()
 {
@@ -735,12 +998,18 @@ void SimulateInitialization(int targetNumber = 10, int threadCount = 2) {
 	g_targetNumber = targetNumber;
 }
 
-std::list<SolutionIntContainer> NewSolution::ListHandler::startingCombinations;
+void RunNewSolutionMultiThreaded() {
 
-void RunNewSolutionMultiThreaded2() {
 	SimpleTimer::SimpleTimer simpleTimer = SimpleTimer::SimpleTimer();
 	g_countOfCombinations = 0;
-	NewSolution::ListHandler::InitializeCombinations();
+	NewSolution::ListHandler::InitializeCombinations(g_targetNumber);
+
+	for (int i = 0
+		; i < NewSolution::ListHandler::startingCombinations.size(); 
+		i++)
+	{
+		NewSolution::ListHandler::ShowList(*NewSolution::ListHandler::startingCombinations[i]);
+	}
 
 	sem = CreateSemaphore(
 		NULL,           // default security attributes
@@ -768,25 +1037,30 @@ void RunNewSolutionMultiThreaded2() {
 		threads[i] = 0;
 	}
 
-	int lastThreadID = -1;
-	for (auto i = NewSolution::ListHandler::startingCombinations.begin(); i != NewSolution::ListHandler::startingCombinations.end(); i++)
+	int lastThreadID = -1; int i = 0;
+
+	for (int i = 0; 
+		i < NewSolution::ListHandler::startingCombinations.size(); 
+		i++
+		)
 	{
-		if (NewSolution::Difference(*i) == 0) {
+		auto it = NewSolution::ListHandler::startingCombinations._collection[i];
+		if (NewSolution::Difference(*it) == 0) {
 			g_countOfCombinations++;
-			NewSolution::ListHandler::ShowCombination(*i);
+			//NewSolution::ListHandler::ShowCombination(*it);
 			continue;
 		}
 		++lastThreadID;
-		NewSolution::ListHandler* listHandler = new NewSolution::ListHandler(*i);
+		NewSolution::ListHandler* listHandler = new NewSolution::ListHandler(it, it->size());
 
-		// TODO: check where we kill ghosts
 		listHandler->DeleteInnerDescendants();
-		//listHandler.FindAllSumsFixedLength();
+
+		//listHandler->FindAllSumsFixedLength();
 
 		threads[lastThreadID] = CreateThread(
 			NULL,       // default security attributes
 			0,          // default stack size
-			(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT2,
+			(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT,
 			(LPVOID)listHandler,       // thread function argument
 			0,          // default creation flags
 			&ThreadID); // receive thread identifier
@@ -799,8 +1073,6 @@ void RunNewSolutionMultiThreaded2() {
 	}
 
 	// Wait for all threads to terminate
-	//WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
-
 	WaitForMultipleObjects(lastThreadID + 1, threads, TRUE, INFINITE);
 
 	// Close thread and semaphore handles
@@ -809,9 +1081,11 @@ void RunNewSolutionMultiThreaded2() {
 
 	delete[] threads;
 	CloseHandle(sem);
-
+	
 	// Release resources used by the critical section object.
 	DeleteCriticalSection(&cs);
+
+	//NewSolution::ListHandler::startingCombinations.~ListOfSets();
 
 	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
@@ -822,88 +1096,49 @@ void RunNewSolutionMultiThreaded2() {
 	std::cout << "Time spent: " << g_millisecondsSpentOutputStr << std::endl;
 }
 
-void RunNewSolutionMultiThreaded( ) {
-
-	g_countOfCombinations = 0;
-	NewSolution::ListHandler::InitializeCombinations();
-	
-	sem = CreateSemaphore(
-		NULL,           // default security attributes
-		1,				// initial count
-		g_threadCount,  // maximum count
-		NULL);          // unnamed semaphore
-
-
-	if (sem == NULL)
-	{
-		printf("CreateSemaphore error: %d\n", GetLastError());
-	}
-
-	// Initialize the critical section one time only.
-	if (!InitializeCriticalSectionAndSpinCount(&cs,
-		0x00000400))
-		return;
-
-	// Create worker threads
-	DWORD ThreadID;
-	threads = new HANDLE[g_threadCount];
-	for (int i = 0; i < g_threadCount; i++)
-	{
-		threads[i] = CreateThread(
-			NULL,       // default security attributes
-			0,          // default stack size
-			(LPTHREAD_START_ROUTINE)NewSolution::ListHandler::FindAllSumsFixedLengthMT,
-			NULL,       // no thread function arguments
-			0,          // default creation flags
-			&ThreadID); // receive thread identifier
-
-		if (threads[i] == NULL)
-		{
-			printf("CreateThread error: %d\n", GetLastError());
-			return;
-		}
-	}
-
-	// Wait for all threads to terminate
-	WaitForMultipleObjects(g_threadCount, threads, TRUE, INFINITE);
-
-	// Close thread and semaphore handles
-	for (int i = 0; i < g_threadCount; i++)
-		CloseHandle(threads[i]);
-
-	delete[] threads;
-	CloseHandle(sem);
-
-	// Release resources used by the critical section object.
-	DeleteCriticalSection(&cs);
-
-	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
-	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
-	std::cout << "*** New Solution Execution Completed ***" << std::endl;
-}
-
 void RunNewSolution(bool showResults = false) {
 	g_countOfCombinations = 0;
-	NewSolution::ListHandler::InitializeCombinations();
+	NewSolution::ListHandler::InitializeCombinations(g_targetNumber);
 	
-	for ( auto i = NewSolution::ListHandler::startingCombinations.begin(); i != NewSolution::ListHandler::startingCombinations.end(); i++ )
-	{
-		if (NewSolution::Difference(*i) == 0) {
-			g_countOfCombinations++;
-			NewSolution::ListHandler::ShowCombination((*i));
-			continue;
-		}
-		NewSolution::ListHandler listHandler(*i);
+	//for ( auto i = NewSolution::ListHandler::startingCombinations.begin(); i != NewSolution::ListHandler::startingCombinations.end(); i++ )
+	//{
+	//	if (NewSolution::Difference(*i) == 0) {
+	//		g_countOfCombinations++;
+	//		NewSolution::ListHandler::ShowCombination((*i));
+	//		continue;
+	//	}
+	//	NewSolution::ListHandler listHandler(*i);
 
-		// TODO: check where we kill ghosts
-		listHandler.DeleteInnerDescendants();
-		listHandler.FindAllSumsFixedLength();
-	}
+	//	// TODO: check where we kill ghosts
+	//	listHandler.DeleteInnerDescendants();
+	//	listHandler.FindAllSumsFixedLength();
+	//}
 
 	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	std::cout << "*** New Solution Execution Completed ***" << std::endl;
 }
+
+int testSet()
+{
+	Set::ContainerSet set(5);
+
+	set[3] = 0;
+	for (int i = 0; i < set.size(); i++) {
+		std::cout << set[i] << "\n";
+	}
+	std::cout << set[3];
+
+	set.~ContainerSet();
+	set.~ContainerSet();
+
+	system("pause");
+	return 1;
+}
+
+//Set::ContainerSet WorkWithSet(Set::ContainerSet set) {
+//	Set::ContainerSet st = Set::ContainerSet();
+//}
 
 int main()
 {
@@ -923,7 +1158,7 @@ int main()
 		return 1;
 	}
 
-	RunNewSolutionMultiThreaded2();
+	RunNewSolutionMultiThreaded();
 
 	Output();
 	CloseStreams();
