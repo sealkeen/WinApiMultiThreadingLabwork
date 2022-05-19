@@ -143,20 +143,28 @@ namespace CombinationsFinder {
 	}
 }
 
-namespace CombinationsFinder_MTT_Try {
+namespace CombinationsFinder_MT2_Try {
 	bool showResults = true;
 	bool shutDownThreads = false;
 	bool endOfCalculations = false;
 	HANDLE sem;
 
-	std::vector<std::vector<int>> arraysToAnalyze;
+	static std::vector<int> countForEachIndex;
+
+	void InitializeIndexes() {
+		countForEachIndex = std::vector<int>();
+		for (int i = 0; i < g_targetNumber; i++)
+		{
+			countForEachIndex.push_back(0);
+		}
+	}
 
 	/*    arr - array to store the combination
 	index - next location in array
 	num - given number
 	reducedNum - reduced number */
-	void findCombinationsUtil(std::vector<int> arr, int index,
-		int num, int reducedNum)
+	void findCombinationsUtil(int* arr, int index,
+		int num, int reducedNum, int permanentIndex)
 	{
 		//if()
 		// Base condition 
@@ -167,10 +175,8 @@ namespace CombinationsFinder_MTT_Try {
 		if (reducedNum == 0)
 		{
 			g_countOfCombinations++;
-			if (CombinationsFinder::showResults) {
-				for (int i = 0; i < index; i++)
-					std::cout << arr[i] << " ";
-				std::cout << std::endl;
+			if (index == permanentIndex) {
+				countForEachIndex[permanentIndex]++;
 			}
 			return;
 		}
@@ -187,11 +193,10 @@ namespace CombinationsFinder_MTT_Try {
 			arr[index] = k;
 
 			// call recursively with reduced number 
-			findCombinationsUtil(std::vector<int>(arr), index + 1, num,
-				reducedNum - k);
+			findCombinationsUtil(arr, index + 1, num,
+				reducedNum - k, permanentIndex);
 		}
 	}
-
 
 	/* Function to find out all combinations of
 	positive numbers that add upto given number.
@@ -199,16 +204,37 @@ namespace CombinationsFinder_MTT_Try {
 	void findCombinations(int n, bool showResults = true)
 	{
 		CombinationsFinder::showResults = showResults;
+		g_countOfCombinations = 0;
+		InitializeIndexes();
 
 		// array to store the combinations 
 		// It can contain max n elements 
 		//int arr[n];
 
-		//dynamic array
-		std::vector<int> arr = std::vector<int>(n);
+		//dynamic arrays
+		int** dynamicArrays = new int*[g_targetNumber];
+		for (int i = 0; i < g_targetNumber; i++)
+		{
+			int* newArray = new int[g_targetNumber];
+			dynamicArrays[i] = newArray;
+		}
 
-		//find all combinations 
-		findCombinationsUtil(arr, 0, n, n);
+		for (int i = g_targetNumber - 1; i >= 0; i++) {
+			findCombinationsUtil(dynamicArrays[i], 0, n, n, i);
+		}
+
+		for (int i = 0; i < g_targetNumber; i++)
+		{
+			g_countOfCombinations =+ countForEachIndex.back();
+			countForEachIndex.pop_back();
+		}
+
+		//free up the memory
+		for (int i = 0; i < g_targetNumber; i++)
+		{
+			delete[] dynamicArrays[i];
+		}
+		delete[] dynamicArrays;
 
 		g_countOfCombinations--;
 	}
@@ -731,8 +757,63 @@ namespace NewSolution {
 	}
 
 	bool SufficientValueDifference(int left, int right, int difference) {
-		if (right > (left + 1))
+		if (right > (left + difference))
 			return true;
+		return false;
+	}
+	
+	void ChangeValue(SolutionIntContainer& container, int index, int value) {
+		container[index] = value;
+	}
+
+	void PrintRebuilt(SolutionIntContainer sIC) 
+	{
+		
+	}
+
+	bool RebuildOnce(SolutionIntContainer& targetList, ReverseIterator rightIndex, int increaseIncludingBorder) {
+		// strictly more than 0 because we move towards left border
+		// and check for the previous (right - 1) element
+		for (; rightIndex > 0; rightIndex--) {
+			for (int leftIndex = rightIndex - 1; leftIndex >= 0; leftIndex--) {
+
+				// if two near elements are equal 
+				if (targetList[rightIndex] == targetList[leftIndex])
+					continue;
+
+				// if the right element is greater than the left element by 2
+				if (targetList[rightIndex] > (targetList[leftIndex] + 1)) {
+					// if increasing the left element doesn't make it more than the right element
+					if ((targetList[(leftIndex)] + 1) <= targetList[rightIndex]) {
+						//int prevIndex = (rightIndex - 1);
+						//if ( prevIndex < targetList.size() && prevIndex >= 0 ) {
+						if (targetList[leftIndex] + 1 <= increaseIncludingBorder) {
+							targetList[rightIndex] = targetList[rightIndex] - 1;
+							targetList[leftIndex] = targetList[leftIndex] + 1;
+							//	}
+						}
+
+						g_countOfCombinations++;
+						#ifdef SHOW_RESULTS
+							targetList[rightIndex] = targetList[rightIndex] - 1;
+							targetList[leftIndex] = targetList[leftIndex] + 1;
+
+							std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
+								+" ; " +
+								std::string("leftIndex = ") + std::to_string(leftIndex) +
+								std::string(";");
+
+							ShowCombination(targetList
+								, &indexesStr
+							);
+						#endif //SHOW_RESULTS
+
+						//RebuildNext(targetList, left);
+						return true;
+					}
+				}
+			}
+		}
 		return false;
 	}
 
@@ -743,26 +824,32 @@ namespace NewSolution {
 		int rightIndex = targetList.size() - 1;
 		int leftIndex = 0;
 
-		if (g_countOfCombinations == 44)
-			std::string();
+		//if (g_countOfCombinations == 44)
+		//	std::string();
 
-		if (!SufficientValueDifference(targetList[leftIndex], targetList[rightIndex], 1))
-			return false;
+		int indexDifference = 1;
+		int valueDifference = 1;
 
-		while (leftIndex < (rightIndex-1)) {
-			if (!SufficientValueDifference(targetList[leftIndex], targetList[rightIndex-1], 1))
+		if (!SufficientValueDifference(targetList[leftIndex], targetList[rightIndex], valueDifference/*1*/))
+			return RebuildOnce(targetList, rightIndex, targetList[rightIndex]);
+
+		while (leftIndex < (rightIndex- indexDifference)) {
+			if (!SufficientValueDifference(targetList[leftIndex], targetList[rightIndex-1], valueDifference/*1*/))
 				break;
 			else
 				rightIndex--;
 		}
 
-		while ((leftIndex+1) < rightIndex) {
-			if (!SufficientValueDifference(targetList[leftIndex+1], targetList[rightIndex], 1))
+		while ((leftIndex + indexDifference) < rightIndex) {
+			if (!SufficientValueDifference(targetList[leftIndex+1], targetList[rightIndex], valueDifference/*1*/))
 				break;
 			else
 				leftIndex++;
 		}
+		g_countOfCombinations++;
 
+
+		#ifdef SHOW_RESULTS
 		targetList[rightIndex] = targetList[rightIndex] - 1;
 		targetList[leftIndex] = targetList[leftIndex] + 1;
 
@@ -771,55 +858,45 @@ namespace NewSolution {
 			std::string("leftIndex = ") + std::to_string(leftIndex) +
 			std::string(";");
 
-		ShowCombination(targetList, &indexesStr);
-		g_countOfCombinations++;
+		ShowCombination(targetList
+			, &indexesStr
+		);
+		#endif //SHOW_RESULTS
 
 		return true;
 	}
 
-	bool RebuildOnce(SolutionIntContainer& targetList, ReverseIterator rightIndex, int increaseIncludingBorder) {
+
+	bool SearchForNew(SolutionIntContainer& targetList/*, ReverseIterator rightIndex,*/) {
 		// strictly more than 0 because we move towards left border
 		// and check for the previous (right - 1) element
-		for (; rightIndex > 0; rightIndex--) {
-			for (int leftIndex = rightIndex - 1; leftIndex >= 0; leftIndex--) {
-				
-				// if two near elements are equal 
-				if ( targetList[rightIndex] == targetList[leftIndex] )
-					continue;
 
-				// if the right element is greater than the left element by 2
-				if ( targetList[rightIndex] > (targetList[leftIndex] + 1) )  {
-					// if increasing the left element doesn't make it more than the right element
-					if ( (targetList[(leftIndex)] + 1) <= targetList[rightIndex] ) {
-						//int prevIndex = (rightIndex - 1);
-						//if ( prevIndex < targetList.size() && prevIndex >= 0 ) {
-							if (targetList[leftIndex] + 1 <= increaseIncludingBorder) {
-								targetList[rightIndex] = targetList[rightIndex] - 1;
-								targetList[leftIndex] = targetList[leftIndex] + 1;
-						//	}
-						}
-						//RebuildNext(targetList, left);
-						return true;
-					}
-				}
-			}
+		int rightIndex = targetList.size() - 1;
+		int leftIndex = 0;
+
+		//if (g_countOfCombinations == 44)
+		//	std::string();
+
+		for (int curRight = rightIndex; curRight < 0; curRight--) {
+
 		}
-		return false;
-	}
 
-	//bool RebuildNext(std::list<int>& targetList, ListIterator right) {
-	//	for (auto left = std::next(right); left != targetList.rend(); left++) {
-	//		if ((*right) == (*left))
-	//			continue;
-	//		// if the left element is greater than the right element by 2
-	//		if ((*right) > (*left) + 1) {
-	//			(*right) = (*right) - 1;
-	//			(*left) = (*left) + 1;
-	//			RebuildNext(targetList, left);
-	//			return true;
-	//		}
-	//	}
-	//}
+		#ifdef SHOW_RESULTS
+		targetList[rightIndex] = targetList[rightIndex] - 1;
+		targetList[leftIndex] = targetList[leftIndex] + 1;
+
+		std::string indexesStr = std::string("rightIndex = ") + std::to_string(rightIndex) +
+			+" ; " +
+			std::string("leftIndex = ") + std::to_string(leftIndex) +
+			std::string(";");
+
+		ShowCombination(targetList
+			, &indexesStr
+		);
+		#endif //SHOW_RESULTS
+
+		return true;
+	}
 
 	int Difference(int sum)
 	{
@@ -846,13 +923,6 @@ namespace NewSolution {
 		}
 	}
 
-	// if ReverseIterator is list<int>::reverse_iterator
-	//ReverseIterator CopyIterator(SolutionIntContainer& source, ReverseIterator& sourceIterator, SolutionIntContainer& target) {
-	//	ReverseIterator targetIterator = target.rbegin();
-	//	std::advance(targetIterator, std::distance(source.rbegin(), sourceIterator));
-	//	return targetIterator;
-	//}
-
 	int CopyIterator(int& sourceIterator) {
 		int targetIterator = sourceIterator;
 		return targetIterator;
@@ -870,71 +940,31 @@ namespace NewSolution {
 		}
 	}
 
-	void FindAllCombinationsForAList(SolutionIntContainer& targetList) {
-		int size = targetList.size();
-		auto back = targetList.rbegin();
-		*back = size;
-		for (auto it = targetList.rbegin(); it != targetList.rend(); it++) {
-			//(*it) = size--;
-			std::cout << (*it) << " ";
+	void FindAllSumsFixedLength(SolutionIntContainer targetList, ReverseIterator iterator, /*int reducedNumber,*/ bool firstRun = false) {
 
-		}
-		std::cout << std::endl;
-	}
-
-	void FindAllFittingSums(SolutionIntContainer targetList, ReverseIterator iterator, /*int reducedNumber,*/ bool firstRun = false) {
-		int rebuiltHere = 0;
-
-		//auto right = firstRun ? targetList.rbegin() : next(iterator);
 		int rightIndex = firstRun ? targetList.size() - 1 : iterator - 1;
-		//TODO: remove assignment
-		firstRun = false;
-		//for (; rightIndex > 0; rightIndex--) {
-			int left = (rightIndex-1);
-			int difference = 0;
-			while ((difference = Difference(targetList)) > 0)
-			{
-				//if (rightIndex == iterator) {
-				targetList[rightIndex]++;
-				//}
-				//else if ((targetList[rightIndex] + 1) <= targetList[iterator]) {
-				//	targetList[rightIndex]++;
-				//}
-			}
 
-			if (rightIndex == iterator) {
-				g_countOfCombinations++;
-				ShowCombination(targetList);
-			}
-			//rebuiltHere++;
+		int left = (rightIndex-1);
+		int difference = 0;
+		while ((difference = Difference(targetList)) > 0)
+		{
+			targetList[rightIndex]++;
+		}
 
-			//if (rebuiltHere > 0) {
-			// first solution found
-			//}
+		if (rightIndex == iterator) {
+			g_countOfCombinations++;
+			ShowCombination(targetList);
+		}
 
-			bool razmazano = false;
-			while (
-				razmazano =
-				//NewSolution::RebuildOnce(targetList, rightIndex, reducedNumber)
-				NewSolution::RebuildCombination(targetList)
-				) {
-				// new rebuilt solution found
-				//ShowCombination(targetList);
-				rebuiltHere++;
-				//g_countOfCombinations++;
-				//ReverseIterator newListIterator = CopyIterator(rightIndex);
-				//RebuildCombination(targetList);
-				//FindAllFittingSums(SolutionIntContainer(targetList), newListIterator, /*reducedNumber - targetList[rightIndex],*/ false);
-			}
-
-			//if (razmazano)
-			//	return;
-			//if (rebuiltHere > 0 && !razmazano) {
-			//	g_countOfCombinations++;
-			//	ShowCombination(targetList);
-			//}
-			//offset++;
-		//}
+		//bool razmazano = false;
+		while (
+			//razmazano =
+			NewSolution::RebuildOnce(targetList, rightIndex, targetList[rightIndex])
+			//NewSolution::RebuildCombination(targetList)
+		) 
+		{
+			;
+		}
 	}
 }
 
@@ -942,11 +972,11 @@ void Test()
 {
 	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(4);
 	NewSolution::ShowList(lst);
-	NewSolution::RebuildOnce(lst, lst.size() - 1, g_targetNumber);
+	NewSolution::RebuildCombination(lst);
 	NewSolution::ShowList(lst);
-	NewSolution::RebuildOnce(lst, lst.size() - 1, g_targetNumber);
+	NewSolution::RebuildCombination(lst);
 	NewSolution::ShowList(lst);
-	NewSolution::RebuildOnce(lst, lst.size() - 1, g_targetNumber);
+	NewSolution::RebuildCombination(lst);
 	NewSolution::ShowList(lst);
 }
 
@@ -955,7 +985,7 @@ void TestFindAllFittings()
 	g_targetNumber = 8;
 	NewSolution::SolutionIntContainer lst; lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1); lst.push_back(1);
 		NewSolution::ShowList(lst);
-	NewSolution::FindAllFittingSums(lst, lst.size() - 1, /*g_targetNumber, */true);
+	NewSolution::FindAllSumsFixedLength(lst, lst.size() - 1, /*g_targetNumber, */true);
 }
 
 void RunNewSolution(bool showResults = false) {
@@ -972,13 +1002,14 @@ void RunNewSolution(bool showResults = false) {
 			NewSolution::ShowCombination((*i));
 			continue;
 		}
-		NewSolution::FindAllFittingSums(*i, i->size()-1, /*g_targetNumber, */true);
-		//sort((*i)->begin(), i->end());
+		NewSolution::FindAllSumsFixedLength(*i, i->size()-1, /*g_targetNumber, */true);
+		//sort(i->begin(), i->end());
 		//i->erase(unique(i->begin(), i->end()), i->end());
 		//countOfCombinations += i->size();
 	}
 
 	std::cout << "Count of combinations " << g_countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
+	//std::cout << "Count of combinations " << countOfCombinations /*+ g_targetNumber-1*/ << std::endl;
 	std::cout << "*** New Solution Execution Completed ***" << std::endl;
 }
 
@@ -986,6 +1017,13 @@ void Run(bool showResults = false) {
 	g_countOfCombinations = 0;
 	SimpleTimer::SimpleTimer simpleTimer;
 	CombinationsFinder::findCombinations(g_targetNumber, showResults);
+	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
+}
+
+void Run_MT2(bool showResults = false) {
+	g_countOfCombinations = 0;
+	SimpleTimer::SimpleTimer simpleTimer;
+	CombinationsFinder_MT2_Try::findCombinations(g_targetNumber, showResults);
 	std::cout << "Count of combinations " << g_countOfCombinations << std::endl;
 }
 
@@ -1001,8 +1039,10 @@ int main()
 {
 	//Test();
 	//TestFindAllFittings();
-	RunNewSolution(7);
-	Run(true);
+	//RunNewSolutionSingleThreaded(true);
+	g_targetNumber = 11;
+	//Run(true);
+	Run_MT2(true);
 	system("pause");
 	return 0;
 	RunNewSolution(15);
@@ -1012,8 +1052,6 @@ int main()
 	return 0;
 	SimulateInitialization();
 	NewSolution::InitializeCombinations();
-	//NewSolution::ShowLists();
-	NewSolution::FindAllCombinationsForAList(NewSolution::combinations.front());
 	system("pause");
 	return 0;
 	g_countOfCombinations = 0;
